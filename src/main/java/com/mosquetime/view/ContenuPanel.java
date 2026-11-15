@@ -18,28 +18,19 @@ import javax.swing.text.StyledDocument;
 
 import com.mosquetime.model.Invocation;
 import com.mosquetime.model.Verset;
+import com.mosquetime.util.Style;
 
-/**
- * Bandeau du bas : un verset (ligne du haut) et une invocation (ligne du bas).
- * Les deux lignes sont mises à jour indépendamment par RotationService :
- *   new RotationService(vRepo, iRepo, contenu::afficherVerset, contenu::afficherInvocation)
- */
 public class ContenuPanel extends JPanel {
 
-    private static final Color FOND = new Color(0x0B3D2E);
-    private static final Color OR = new Color(0xE8C766);
-    private static final Color BLANC = new Color(0xF5F5F0);
-
-    private final JTextPane texteVerset = creerTexte(30, BLANC);
+    private final JTextPane texteVerset = creerTexte(30, Style.TEXTE);
     private final JLabel refVerset = creerReference();
 
-    private final JTextPane texteInvocation = creerTexte(26, OR);
+    private final JTextPane texteInvocation = creerTexte(26, Style.OR);
     private final JLabel refInvocation = creerReference();
 
     public ContenuPanel() {
-
         setLayout(new GridLayout(2, 1, 0, 6));
-        setBackground(FOND);
+        setOpaque(false);
         setBorder(BorderFactory.createEmptyBorder(10, 30, 10, 30));
         setPreferredSize(new Dimension(800, 190));
 
@@ -47,21 +38,17 @@ public class ContenuPanel extends JPanel {
         add(creerLigne(texteInvocation, refInvocation));
     }
 
-    // Affiche un verset (appelé par la rotation, dans le thread Swing)
     public void afficherVerset(Verset v) {
         texteVerset.setText(v.getTexteArabe());
-        refVerset.setText("﴿ " + v.getReference() + " ﴾");
+        refVerset.setText("\uFD3F " + v.getReference() + " \uFD3E");
         centrer(texteVerset);
     }
 
-    // Affiche une invocation
     public void afficherInvocation(Invocation i) {
         texteInvocation.setText(i.getTexteArabe());
         refInvocation.setText(i.getReference());
         centrer(texteInvocation);
     }
-
-    // ---------- Construction ----------
 
     private static JPanel creerLigne(JTextPane texte, JLabel reference) {
         JPanel ligne = new JPanel(new BorderLayout());
@@ -78,20 +65,18 @@ public class ContenuPanel extends JPanel {
         t.setOpaque(false);
         t.setForeground(couleur);
         t.setFont(new Font("Traditional Arabic", Font.PLAIN, taille));
-        // Arabe : lecture de droite à gauche
         t.setComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
         return t;
     }
 
     private static JLabel creerReference() {
         JLabel l = new JLabel(" ", SwingConstants.CENTER);
-        l.setForeground(new Color(0xB9C9C0));
+        l.setForeground(new Color(0xCBD5E1));
         l.setFont(new Font("Traditional Arabic", Font.PLAIN, 18));
         l.setComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
         return l;
     }
 
-    // Le centrage d'un JTextPane se fait par attribut de paragraphe
     private static void centrer(JTextPane t) {
         StyledDocument doc = t.getStyledDocument();
         SimpleAttributeSet centre = new SimpleAttributeSet();

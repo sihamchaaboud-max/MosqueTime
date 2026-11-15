@@ -1,7 +1,7 @@
-
 package com.mosquetime.repository;
 
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -10,8 +10,7 @@ import com.mosquetime.model.Verset;
 
 public class VersetRepository {
 
-    private static final String FICHIER =
-            "/data/versets.json";
+    private static final String FICHIER = "versets.json";
 
     private List<Verset> versets;
 
@@ -19,22 +18,17 @@ public class VersetRepository {
         chargerVersets();
     }
 
-    // Charger tous les versets
     private void chargerVersets() {
-
         Type type = new TypeToken<List<Verset>>() {}.getType();
-
-        versets = JsonManager.lire(FICHIER, type);
+        List<Verset> lus = JsonManager.lire(FICHIER, type);
+        versets = (lus == null) ? new ArrayList<>() : lus;
     }
 
-    // Récupérer tous les versets
     public List<Verset> getTous() {
         return versets;
     }
 
-    // Récupérer les versets d'un thème
     public List<Verset> getParTheme(int themeId) {
-
         return versets.stream()
                 .filter(v -> v.getThemeId() == themeId)
                 .collect(Collectors.toList());
