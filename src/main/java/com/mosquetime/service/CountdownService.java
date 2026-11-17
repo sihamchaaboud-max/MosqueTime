@@ -11,6 +11,11 @@ public class CountdownService {
         fin = LocalDateTime.now().plusMinutes(minutes);
     }
 
+    // Variante en secondes (utile pour tester sans attendre 15 minutes)
+    public void demarrerSecondes(int secondes) {
+        fin = LocalDateTime.now().plusSeconds(secondes);
+    }
+
     public void arreter() {
         fin = null;
     }

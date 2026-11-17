@@ -1,5 +1,21 @@
 package com.mosquetime;
 
+import java.awt.BorderLayout;
+import java.awt.CardLayout;
+import java.awt.Dimension;
+import java.awt.event.KeyEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.time.format.DateTimeFormatter;
+
+import javax.swing.JComponent;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.KeyStroke;
+import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
+import javax.swing.WindowConstants;
+
 import com.mosquetime.controller.EcranController;
 import com.mosquetime.model.Mosquee;
 import com.mosquetime.model.Priere;
@@ -16,21 +32,6 @@ import com.mosquetime.view.AttentePanel;
 import com.mosquetime.view.ContenuPanel;
 import com.mosquetime.view.NormalPanel;
 
-import javax.swing.JComponent;
-import javax.swing.JFrame;
-import javax.swing.JPanel;
-import javax.swing.KeyStroke;
-import javax.swing.SwingUtilities;
-import javax.swing.UIManager;
-import javax.swing.WindowConstants;
-import java.awt.BorderLayout;
-import java.awt.CardLayout;
-import java.awt.Dimension;
-import java.awt.event.KeyEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
-import java.time.format.DateTimeFormatter;
-
 /**
  * Point d'entrée de MosqueTime.
  * EcranController décide de l'état (NORMAL, ADHAN, ATTENTE) ;
@@ -43,7 +44,6 @@ public class Main {
     private static final String ATTENTE = "ATTENTE";
 
     private static final boolean PLEIN_ECRAN = false;
-    private static final boolean MODE_DEMO = true;
 
     private static final DateTimeFormatter FORMAT_HEURE =
             DateTimeFormatter.ofPattern("HH:mm");
@@ -113,13 +113,6 @@ public class Main {
                 KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
                 JComponent.WHEN_IN_FOCUSED_WINDOW);
 
-        if (MODE_DEMO) {
-            fenetre.getRootPane().registerKeyboardAction(
-                    e -> controller.declencherAdhan(Priere.DHUHR),
-                    KeyStroke.getKeyStroke(KeyEvent.VK_F2, 0),
-                    JComponent.WHEN_IN_FOCUSED_WINDOW);
-        }
-
         controller.setSurMiseAJour(this::rafraichir);
         controller.setSurChangementEtat(this::surChangementEtat);
 
@@ -149,6 +142,17 @@ public class Main {
         }
     }
 
+    private static String obtenirNomArabe(Priere priere) {
+    return switch (priere.getLibelle().toUpperCase()) {
+        case "FAJR" -> "الفجر";
+        case "DOHR" -> "الظهر";
+        case "ASR" -> "العصر";
+        case "MAGHRIB" -> "المغرب";
+        case "ICHA" -> "العشاء";
+        default -> priere.getLibelle();
+    };
+}
+
     private void surChangementEtat(Etat etat) {
         Priere priere = controller.getPriereCourante();
 
@@ -159,7 +163,11 @@ public class Main {
                 cartes.show(zoneEcrans, NORMAL);
             }
             case ADHAN -> {
-                adhanPanel.setPriere(priere.getLibelle(), heureDe(priere));
+                String nomFr = priere.getLibelle();
+                String nomAr = obtenirNomArabe(priere);
+
+                adhanPanel.setPriere(nomFr, nomAr, heureDe(priere));
+
                 zoneBas.setVisible(true);
                 cartes.show(zoneEcrans, ADHAN);
                 sonAdhan.jouer(controller::terminerAdhan);

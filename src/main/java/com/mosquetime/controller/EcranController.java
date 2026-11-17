@@ -11,10 +11,17 @@ import java.time.LocalTime;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+/**
+ * Machine à états de l'écran : NORMAL -> ADHAN -> ATTENTE -> NORMAL.
+ *
+ *  - NORMAL  : l'heure d'une prière arrive      -> ADHAN
+ *  - ADHAN   : le son est terminé (terminerAdhan) -> ATTENTE (compte à rebours 15 min)
+ *              (sécurité : si le son ne finit pas, fin automatique après 180 s)
+ *  - ATTENTE : le compte à rebours est fini      -> NORMAL
+ */
 public class EcranController {
 
-    private static final int DUREE_ADHAN_MIN_SECONDES = 30;
-    private static final int DUREE_ADHAN_MAX_SECONDES = 300;
+    private static final int DUREE_ADHAN_SECONDES = 180;
     private static final int DUREE_ATTENTE_MINUTES = 15;
 
     private final HoraireService horaireService = new HoraireService();
@@ -23,8 +30,8 @@ public class EcranController {
 
     private Etat etat = Etat.NORMAL;
     private Priere priereCourante;
-    private LocalDateTime debutAdhan;
-    private volatile boolean sonTermine;
+    private LocalDateTime finAdhan;
+    private int dureeAttenteSecondes = DUREE_ATTENTE_MINUTES * 60;
 
     private Runnable surMiseAJour;
     private Consumer<Etat> surChangementEtat;
@@ -41,23 +48,17 @@ public class EcranController {
         timer.stop();
     }
 
+    // Appelé chaque seconde (rafraîchir l'heure, le compteur...)
     public void setSurMiseAJour(Runnable surMiseAJour) {
         this.surMiseAJour = surMiseAJour;
     }
 
+    // Appelé UNE fois à chaque changement d'état (changer d'écran, lancer le son...)
     public void setSurChangementEtat(Consumer<Etat> surChangementEtat) {
         this.surChangementEtat = surChangementEtat;
     }
 
-    public void declencherAdhan(Priere priere) {
-        if (etat == Etat.NORMAL) {
-            demarrerAdhan(priere);
-        }
-    }
-
-    public void terminerAdhan() {
-        sonTermine = true;
-    }
+    // ---------- Cycle automatique ----------
 
     private void tick() {
         switch (etat) {
@@ -65,44 +66,61 @@ public class EcranController {
             case ADHAN -> verifierFinAdhan();
             case ATTENTE -> verifierFinAttente();
         }
-        if (surMiseAJour != null) {
-            surMiseAJour.run();
-        }
+        notifierMiseAJour();
     }
 
     private void verifierAdhan() {
         Optional<Priere> priere = horaireService.priereAdhan(LocalTime.now());
         if (priere.isPresent()) {
-            demarrerAdhan(priere.get());
+            declencherAdhan(priere.get());
         }
     }
 
-    private void demarrerAdhan(Priere priere) {
-        priereCourante = priere;
-        debutAdhan = LocalDateTime.now();
-        sonTermine = false;
-        changerEtat(Etat.ADHAN);
-    }
-
     private void verifierFinAdhan() {
-        LocalDateTime maintenant = LocalDateTime.now();
-        boolean minimumAtteint =
-                !maintenant.isBefore(debutAdhan.plusSeconds(DUREE_ADHAN_MIN_SECONDES));
-        boolean maximumAtteint =
-                !maintenant.isBefore(debutAdhan.plusSeconds(DUREE_ADHAN_MAX_SECONDES));
-
-        if (maximumAtteint || (sonTermine && minimumAtteint)) {
-            countdown.demarrer(DUREE_ATTENTE_MINUTES);
-            changerEtat(Etat.ATTENTE);
+        if (!LocalDateTime.now().isBefore(finAdhan)) {
+            terminerAdhan();
         }
     }
 
     private void verifierFinAttente() {
         if (countdown.estTermine()) {
-            countdown.arreter();
-            priereCourante = null;
-            changerEtat(Etat.NORMAL);
+            retourNormal();
         }
+    }
+
+    // ---------- Transitions (aussi utilisables pour la démonstration) ----------
+
+    // NORMAL -> ADHAN
+    public void declencherAdhan(Priere priere) {
+        countdown.arreter();
+        priereCourante = priere;
+        finAdhan = LocalDateTime.now().plusSeconds(DUREE_ADHAN_SECONDES);
+        changerEtat(Etat.ADHAN);
+    }
+
+    // ADHAN -> ATTENTE (appelé à la fin du son de l'adhan)
+    public void terminerAdhan() {
+        if (etat != Etat.ADHAN) {
+            return;
+        }
+        declencherAttente(DUREE_ATTENTE_MINUTES * 60);
+    }
+
+    // Démarre l'ATTENTE avec un compte à rebours en secondes
+    public void declencherAttente(int secondes) {
+        if (priereCourante == null) {
+            priereCourante = Priere.DHUHR;
+        }
+        dureeAttenteSecondes = secondes;
+        countdown.demarrerSecondes(secondes);
+        changerEtat(Etat.ATTENTE);
+    }
+
+    // ATTENTE -> NORMAL
+    public void retourNormal() {
+        countdown.arreter();
+        priereCourante = null;
+        changerEtat(Etat.NORMAL);
     }
 
     private void changerEtat(Etat nouveau) {
@@ -110,7 +128,16 @@ public class EcranController {
         if (surChangementEtat != null) {
             surChangementEtat.accept(nouveau);
         }
+        notifierMiseAJour();
     }
+
+    private void notifierMiseAJour() {
+        if (surMiseAJour != null) {
+            surMiseAJour.run();
+        }
+    }
+
+    // ---------- Lecture de l'état ----------
 
     public Etat getEtat() {
         return etat;
@@ -124,11 +151,15 @@ public class EcranController {
         return horaireService.prochainePriere(LocalTime.now());
     }
 
+    public String getTexteCompteARebours() {
+        return countdown.texteRestant();
+    }
+
     public long getSecondesRestantes() {
         return countdown.secondesRestantes();
     }
 
-    public String getTexteCompteARebours() {
-        return countdown.texteRestant();
+    public int getDureeAttenteSecondes() {
+        return dureeAttenteSecondes;
     }
 }
