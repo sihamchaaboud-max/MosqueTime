@@ -16,12 +16,14 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 
+import com.mosquetime.model.Priere;
+import com.mosquetime.util.I18n;
 import com.mosquetime.util.Style;
 
 /**
- * Écran d'ATTENTE : compte à rebours avant l'iqama, même style que NormalPanel.
- * Le panneau ne calcule rien : le contrôleur appelle setTempsRestant()
- * chaque seconde. Le compteur devient rouge sous une minute.
+ * Écran d'ATTENTE : compte à rebours avant l'iqama (même style que NormalPanel).
+ * Les textes suivent la langue choisie. Le compteur reste en chiffres
+ * 00:00, de gauche à droite, quelle que soit la langue.
  */
 public class AttentePanel extends JPanel {
 
@@ -30,26 +32,24 @@ public class AttentePanel extends JPanel {
 
     private final Image fond = FondEcran.charger();
 
-    private final JLabel titre = new JLabel("Iqama dans", SwingConstants.CENTER);
-    private final JLabel titreAr = new JLabel("إقامة الصلاة بعد", SwingConstants.CENTER);
+    private final JLabel titre = new JLabel(" ", SwingConstants.CENTER);
     private final JLabel nomPriere = new JLabel(" ", SwingConstants.CENTER);
     private final JLabel compteur = new JLabel("00:00", SwingConstants.CENTER);
-    private final JLabel consigne =
-            new JLabel("Veuillez rejoindre les rangs", SwingConstants.CENTER);
+    private final JLabel consigne = new JLabel(" ", SwingConstants.CENTER);
     private final Barre barre = new Barre();
 
     private int dureeTotale = DUREE_PAR_DEFAUT;
+    private int secondes = 0;
+
+    private Priere priere;
+    private String nomLibre = "";
 
     public AttentePanel() {
 
         setLayout(new GridBagLayout());
         setBorder(BorderFactory.createEmptyBorder(25, 40, 25, 40));
 
-        titre.setFont(Style.MOYEN);
         titre.setForeground(new Color(0xCBD5E1));
-
-        titreAr.setFont(new Font("Traditional Arabic", Font.BOLD, 40));
-        titreAr.setForeground(Style.OR);
 
         nomPriere.setFont(new Font("SansSerif", Font.BOLD, 64));
         nomPriere.setForeground(Style.TEXTE);
@@ -70,11 +70,10 @@ public class AttentePanel extends JPanel {
         c.insets = new Insets(6, 0, 6, 0);
 
         c.gridy = 0; carte.add(titre, c);
-        c.gridy = 1; carte.add(titreAr, c);
-        c.gridy = 2; carte.add(nomPriere, c);
-        c.gridy = 3; carte.add(compteur, c);
-        c.gridy = 4; carte.add(barre, c);
-        c.gridy = 5; carte.add(consigne, c);
+        c.gridy = 1; carte.add(nomPriere, c);
+        c.gridy = 2; carte.add(compteur, c);
+        c.gridy = 3; carte.add(barre, c);
+        c.gridy = 4; carte.add(consigne, c);
 
         GridBagConstraints centre = new GridBagConstraints();
         centre.weightx = 1;
@@ -82,10 +81,28 @@ public class AttentePanel extends JPanel {
         add(carte, centre);
 
         setTempsRestant(0);
+        appliquerLangue();
+        I18n.ajouterEcouteur(this::appliquerLangue);
     }
 
+    // Prière concernée : le nom s'affiche dans la langue choisie
+    public void setPriere(Priere priere) {
+        this.priere = priere;
+        this.nomLibre = "";
+        appliquerLangue();
+    }
+
+    // Compatibilité avec l'ancien appel setPriere(nom)
     public void setPriere(String nom) {
-        nomPriere.setText(nom);
+        for (Priere p : Priere.values()) {
+            if (p.getLibelle().equalsIgnoreCase(nom) || p.name().equalsIgnoreCase(nom)) {
+                setPriere(p);
+                return;
+            }
+        }
+        this.priere = null;
+        this.nomLibre = nom;
+        appliquerLangue();
     }
 
     // Durée totale de l'attente (sert à calculer la barre de progression)
@@ -96,16 +113,29 @@ public class AttentePanel extends JPanel {
     // Met à jour le compte à rebours (rouge sous la minute)
     public void setTempsRestant(int secondes) {
 
-        if (secondes < 0) {
-            secondes = 0;
-        }
+        this.secondes = Math.max(secondes, 0);
 
-        compteur.setText(String.format("%02d:%02d", secondes / 60, secondes % 60));
+        compteur.setText(String.format("%02d:%02d", this.secondes / 60, this.secondes % 60));
 
-        Color couleur = secondes < 60 ? ALERTE : Style.OR;
+        Color couleur = this.secondes < 60 ? ALERTE : Style.OR;
         compteur.setForeground(couleur);
 
-        barre.setProgression((double) secondes / dureeTotale, couleur);
+        barre.setProgression((double) this.secondes / dureeTotale, couleur);
+    }
+
+    private void appliquerLangue() {
+        applyComponentOrientation(I18n.orientation());
+
+        titre.setFont(I18n.estDroiteAGauche()
+                ? new Font("Traditional Arabic", Font.BOLD, 46)
+                : Style.MOYEN);
+
+        titre.setText(I18n.t("attente.titre"));
+        consigne.setText(I18n.t("attente.consigne"));
+        nomPriere.setText(priere != null ? I18n.nomPriere(priere) : nomLibre);
+
+        revalidate();
+        repaint();
     }
 
     @Override

@@ -11,10 +11,27 @@ import java.util.Optional;
 
 public class HoraireService {
 
+    // Le fichier horaires.json est relu au plus toutes les 30 secondes
+    private static final long DUREE_CACHE_MS = 30_000;
+
     private final HoraireRepository repository = new HoraireRepository();
 
+    private Optional<Horaire> cache = Optional.empty();
+    private LocalDate dateCache;
+    private long tempsCache;
+
     public Optional<Horaire> horaireDuJour() {
-        return repository.trouverParDate(LocalDate.now());
+        LocalDate aujourdhui = LocalDate.now();
+        long maintenant = System.currentTimeMillis();
+
+        if (dateCache == null
+                || !aujourdhui.equals(dateCache)
+                || maintenant - tempsCache > DUREE_CACHE_MS) {
+            cache = repository.trouverParDate(aujourdhui);
+            dateCache = aujourdhui;
+            tempsCache = maintenant;
+        }
+        return cache;
     }
 
     public Optional<Priere> prochainePriere(LocalTime maintenant) {

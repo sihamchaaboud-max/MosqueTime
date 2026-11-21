@@ -4,6 +4,7 @@ import com.mosquetime.controller.EcranController;
 import com.mosquetime.model.Horaire;
 import com.mosquetime.model.Priere;
 import com.mosquetime.service.HoraireService;
+import com.mosquetime.util.I18n;
 import com.mosquetime.util.Style;
 
 import javax.imageio.ImageIO;
@@ -21,8 +22,6 @@ import java.util.Optional;
 
 public class NormalPanel extends JPanel {
 
-    private static final DateTimeFormatter FORMAT_DATE =
-            DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.FRENCH);
     private static final DateTimeFormatter FORMAT_HEURE =
             DateTimeFormatter.ofPattern("HH:mm:ss");
     private static final DateTimeFormatter FORMAT_PRIERE =
@@ -37,6 +36,7 @@ public class NormalPanel extends JPanel {
     private final JLabel labelDate = new JLabel("", SwingConstants.CENTER);
     private final JLabel labelHeure = new JLabel("", SwingConstants.CENTER);
     private final JLabel labelProchaine = new JLabel("", SwingConstants.CENTER);
+    private final BoutonParametres boutonParametres = new BoutonParametres();
 
     private final Map<Priere, JLabel> labelsNoms = new EnumMap<>(Priere.class);
     private final Map<Priere, JLabel> labelsHeures = new EnumMap<>(Priere.class);
@@ -65,11 +65,27 @@ public class NormalPanel extends JPanel {
         haut.add(labelMosquee);
         haut.add(labelDate);
 
-        add(haut, BorderLayout.NORTH);
+        // Bouton « Paramètres » (roue dentée) : à droite, ou à gauche en arabe.
+        // Un espace de même taille de l'autre côté garde le titre bien centré.
+        boutonParametres.addActionListener(e -> ouvrirParametres());
+
+        JPanel boutonZone = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        boutonZone.setOpaque(false);
+        boutonZone.add(boutonParametres);
+
+        JPanel entete = new JPanel(new BorderLayout());
+        entete.setOpaque(false);
+        entete.add(haut, BorderLayout.CENTER);
+        entete.add(boutonZone, BorderLayout.LINE_END);
+        entete.add(Box.createRigidArea(new Dimension(BoutonParametres.TAILLE + 8, 1)),
+                BorderLayout.LINE_START);
+
+        add(entete, BorderLayout.NORTH);
         add(construireCentre(), BorderLayout.CENTER);
         add(construireTableau(), BorderLayout.SOUTH);
 
-        rafraichir();
+        appliquerLangue();
+        I18n.ajouterEcouteur(this::appliquerLangue);
     }
 
     public ContenuPanel getContenuPanel() {
@@ -124,8 +140,34 @@ public class NormalPanel extends JPanel {
         return tableau;
     }
 
+    // Appelé au démarrage et à chaque changement de langue
+    private void appliquerLangue() {
+        applyComponentOrientation(I18n.orientation());
+
+        // Les versets et invocations sont en arabe : toujours de droite à gauche
+        contenuPanel.applyComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
+
+        boutonParametres.setToolTipText(I18n.t("parametres.titre"));
+        rafraichir();
+        revalidate();
+        repaint();
+    }
+
+    private void ouvrirParametres() {
+        Window fenetre = SwingUtilities.getWindowAncestor(this);
+        JDialog boite = new JDialog(fenetre, I18n.t("parametres.titre"),
+                Dialog.ModalityType.APPLICATION_MODAL);
+        boite.setContentPane(new ParametrePanel(boite::dispose));
+        boite.pack();
+        boite.setMinimumSize(new Dimension(520, 280));
+        boite.setLocationRelativeTo(this);
+        boite.setVisible(true);
+    }
+
     public void rafraichir() {
-        labelDate.setText(majuscule(LocalDate.now().format(FORMAT_DATE)));
+        DateTimeFormatter formatDate =
+                DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", I18n.getLocale());
+        labelDate.setText(majuscule(LocalDate.now().format(formatDate)));
         labelHeure.setText(LocalTime.now().format(FORMAT_HEURE));
 
         Optional<Horaire> horaire = horaireService.horaireDuJour();
@@ -133,15 +175,16 @@ public class NormalPanel extends JPanel {
 
         if (prochaine.isPresent()) {
             LocalTime h = horaire.map(x -> x.getHeure(prochaine.get())).orElse(null);
-            String texteHeure = (h == null) ? "" : "  " + h.format(FORMAT_PRIERE);
-            labelProchaine.setText("Prochaine prière : "
-                    + prochaine.get().getLibelle() + texteHeure);
+            String texteHeure = (h == null) ? "" : h.format(FORMAT_PRIERE);
+            labelProchaine.setText(I18n.t("normal.prochaine",
+                    I18n.nomPriere(prochaine.get()), texteHeure));
         } else {
-            labelProchaine.setText("Plus de prière aujourd'hui");
+            labelProchaine.setText(I18n.t("normal.aucune"));
         }
 
         for (Priere p : Priere.values()) {
             LocalTime h = horaire.map(x -> x.getHeure(p)).orElse(null);
+            labelsNoms.get(p).setText(I18n.nomPriere(p));
             labelsHeures.get(p).setText(h == null ? "--:--" : h.format(FORMAT_PRIERE));
 
             boolean estProchaine = prochaine.isPresent() && prochaine.get() == p;
