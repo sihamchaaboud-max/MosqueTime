@@ -3,15 +3,18 @@ package com.mosquetime.view;
 import com.mosquetime.controller.EcranController;
 import com.mosquetime.model.Horaire;
 import com.mosquetime.model.Priere;
+import com.mosquetime.service.ApparenceService;
 import com.mosquetime.service.HoraireService;
+import com.mosquetime.util.DateUtil;
 import com.mosquetime.util.Style;
 
-import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
-import java.io.IOException;
-import java.net.URL;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.EnumMap;
@@ -28,13 +31,16 @@ public class NormalPanel extends JPanel {
     private static final DateTimeFormatter FORMAT_PRIERE =
             DateTimeFormatter.ofPattern("HH:mm");
 
+    private static final int DECALAGE_HIJRI_JOURS = 0;
+
     private final EcranController controller;
     private final HoraireService horaireService = new HoraireService();
-    private final Image fond = chargerFond();
+    private Image fond = new ApparenceService().chargerFond();
     private final ContenuPanel contenuPanel = new ContenuPanel();
 
     private final JLabel labelMosquee = new JLabel("", SwingConstants.CENTER);
     private final JLabel labelDate = new JLabel("", SwingConstants.CENTER);
+    private final JLabel labelDateHijri = new JLabel("", SwingConstants.CENTER);
     private final JLabel labelHeure = new JLabel("", SwingConstants.CENTER);
     private final JLabel labelProchaine = new JLabel("", SwingConstants.CENTER);
 
@@ -54,16 +60,31 @@ public class NormalPanel extends JPanel {
         labelDate.setFont(Style.MOYEN);
         labelDate.setForeground(Style.TEXTE);
 
+        labelDateHijri.setFont(Style.PETIT);
+        labelDateHijri.setForeground(Style.TEXTE);
+
         labelHeure.setFont(Style.GRAND);
         labelHeure.setForeground(Style.TEXTE);
 
         labelProchaine.setFont(Style.MOYEN);
         labelProchaine.setForeground(Style.OR);
 
-        JPanel haut = new JPanel(new GridLayout(2, 1));
+        JPanel dates = new JPanel(new GridLayout(2, 1));
+        dates.setOpaque(false);
+        dates.add(labelDate);
+        dates.add(labelDateHijri);
+
+        JPanel haut = new JPanel(new BorderLayout());
         haut.setOpaque(false);
-        haut.add(labelMosquee);
-        haut.add(labelDate);
+        haut.add(labelMosquee, BorderLayout.NORTH);
+        haut.add(dates, BorderLayout.CENTER);
+
+        labelHeure.addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                ajusterPoliceHeure();
+            }
+        });
 
         add(haut, BorderLayout.NORTH);
         add(construireCentre(), BorderLayout.CENTER);
@@ -76,6 +97,15 @@ public class NormalPanel extends JPanel {
         return contenuPanel;
     }
 
+    public void setNomMosquee(String nom) {
+        labelMosquee.setText(nom);
+    }
+
+    public void actualiserFond() {
+        fond = new ApparenceService().chargerFond();
+        repaint();
+    }
+
     private JPanel construireCentre() {
         Carte pastille = new Carte(new BorderLayout(), 190);
         pastille.setBorder(BorderFactory.createEmptyBorder(8, 30, 8, 30));
@@ -85,10 +115,10 @@ public class NormalPanel extends JPanel {
         ligneProchaine.setOpaque(false);
         ligneProchaine.add(pastille);
 
-        JPanel temps = new JPanel(new GridLayout(2, 1));
+        JPanel temps = new JPanel(new BorderLayout());
         temps.setOpaque(false);
-        temps.add(labelHeure);
-        temps.add(ligneProchaine);
+        temps.add(labelHeure, BorderLayout.CENTER);
+        temps.add(ligneProchaine, BorderLayout.SOUTH);
 
         Carte contenu = new Carte(new BorderLayout(), 190);
         contenu.setBorder(BorderFactory.createEmptyBorder(5, 15, 5, 15));
@@ -125,19 +155,25 @@ public class NormalPanel extends JPanel {
     }
 
     public void rafraichir() {
-        labelDate.setText(majuscule(LocalDate.now().format(FORMAT_DATE)));
+        LocalDate aujourdhui = LocalDate.now();
+        labelDate.setText(majuscule(aujourdhui.format(FORMAT_DATE)));
+        labelDateHijri.setText(DateUtil.dateHijri(aujourdhui, DECALAGE_HIJRI_JOURS));
         labelHeure.setText(LocalTime.now().format(FORMAT_HEURE));
 
         Optional<Horaire> horaire = horaireService.horaireDuJour();
         Optional<Priere> prochaine = controller.getProchainePriere();
 
-        if (prochaine.isPresent()) {
+        Optional<EcranController.Alerte> alerte = controller.getAlerte();
+        if (alerte.isPresent()) {
+            labelProchaine.setText("Il reste " + alerte.get().minutes()
+                    + " min pour la prière " + alerte.get().priere().getLibelle());
+        } else if (prochaine.isPresent()) {
             LocalTime h = horaire.map(x -> x.getHeure(prochaine.get())).orElse(null);
             String texteHeure = (h == null) ? "" : "  " + h.format(FORMAT_PRIERE);
             labelProchaine.setText("Prochaine prière : "
                     + prochaine.get().getLibelle() + texteHeure);
         } else {
-            labelProchaine.setText("Plus de prière aujourd'hui");
+            labelProchaine.setText(texteFajrDemain());
         }
 
         for (Priere p : Priere.values()) {
@@ -175,15 +211,23 @@ public class NormalPanel extends JPanel {
         g2.dispose();
     }
 
-    private static Image chargerFond() {
-        try {
-            URL url = NormalPanel.class.getResource("/images/mosqimg.jpg");
-            if (url == null) {
-                return null;
-            }
-            return ImageIO.read(url);
-        } catch (IOException e) {
-            return null;
+    private String texteFajrDemain() {
+        Optional<LocalTime> fajr = horaireService.heureFajrDemain();
+        if (fajr.isEmpty()) {
+            return "Plus de prière aujourd'hui";
+        }
+        LocalDateTime debut = LocalDateTime.of(LocalDate.now().plusDays(1), fajr.get());
+        Duration reste = Duration.between(LocalDateTime.now(), debut);
+        return Priere.FAJR.getLibelle() + " demain " + fajr.get().format(FORMAT_PRIERE)
+                + "  ·  dans " + reste.toHours() + " h "
+                + String.format("%02d", reste.toMinutesPart()) + " min";
+    }
+
+    private void ajusterPoliceHeure() {
+        int taille = (int) (labelHeure.getHeight() / 1.4);
+        taille = Math.max(36, Math.min(120, taille));
+        if (labelHeure.getFont().getSize() != taille) {
+            labelHeure.setFont(Style.GRAND.deriveFont((float) taille));
         }
     }
 

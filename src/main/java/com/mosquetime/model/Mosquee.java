@@ -7,6 +7,7 @@ public class Mosquee {
     private String ville;
     private String pays;
     private String informations;
+    private boolean active;
 
     public Mosquee() {
     }
@@ -49,5 +50,13 @@ public class Mosquee {
 
     public void setInformations(String informations) {
         this.informations = informations;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
     }
 }

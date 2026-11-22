@@ -1,0 +1,22 @@
+[
+  {
+    "nom": "Mosquée Mohammed V",
+    "ville": "Al Hoceima",
+    "pays": "Maroc",
+    "active": true
+  },
+  {
+    "nom": "Mosquée Mohamed VI",
+    "adresse": "Rue Houmman El Fatwaki",
+    "ville": "Al Hoceima",
+    "pays": "Maroc",
+    "active": false
+  },
+  {
+    "nom": "Mosquée Ghinia",
+    "adresse": "Rue Youssef Ibn Tachfin",
+    "ville": "Al Hoceima",
+    "pays": "Maroc",
+    "active": false
+  }
+]

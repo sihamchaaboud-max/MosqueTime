@@ -3,6 +3,7 @@ package com.mosquetime.controller;
 import com.mosquetime.model.Priere;
 import com.mosquetime.service.CountdownService;
 import com.mosquetime.service.HoraireService;
+import com.mosquetime.service.IqamaService;
 import com.mosquetime.util.Etat;
 
 import javax.swing.Timer;
@@ -13,12 +14,16 @@ import java.util.function.Consumer;
 
 public class EcranController {
 
+    public record Alerte(Priere priere, long minutes) {}
+
+    private static final int SEUIL_ALERTE_MINUTES = 5;
     private static final int DUREE_ADHAN_MIN_SECONDES = 30;
     private static final int DUREE_ADHAN_MAX_SECONDES = 300;
-    private static final int DUREE_ATTENTE_MINUTES = 15;
+    private static final int DUREE_PRIERE_MINUTES = 5;
 
     private final HoraireService horaireService = new HoraireService();
     private final CountdownService countdown = new CountdownService();
+    private final IqamaService iqamaService = new IqamaService();
     private final Timer timer;
 
     private Etat etat = Etat.NORMAL;
@@ -55,6 +60,13 @@ public class EcranController {
         }
     }
 
+    public void declencherPriere() {
+        if (etat == Etat.NORMAL) {
+            countdown.demarrer(DUREE_PRIERE_MINUTES);
+            changerEtat(Etat.PRIERE);
+        }
+    }
+
     public void terminerAdhan() {
         sonTermine = true;
     }
@@ -64,6 +76,7 @@ public class EcranController {
             case NORMAL -> verifierAdhan();
             case ADHAN -> verifierFinAdhan();
             case ATTENTE -> verifierFinAttente();
+            case PRIERE -> verifierFinPriere();
         }
         if (surMiseAJour != null) {
             surMiseAJour.run();
@@ -92,12 +105,19 @@ public class EcranController {
                 !maintenant.isBefore(debutAdhan.plusSeconds(DUREE_ADHAN_MAX_SECONDES));
 
         if (maximumAtteint || (sonTermine && minimumAtteint)) {
-            countdown.demarrer(DUREE_ATTENTE_MINUTES);
+            countdown.demarrer(iqamaService.getDureeMinutes(priereCourante));
             changerEtat(Etat.ATTENTE);
         }
     }
 
     private void verifierFinAttente() {
+        if (countdown.estTermine()) {
+            countdown.demarrer(DUREE_PRIERE_MINUTES);
+            changerEtat(Etat.PRIERE);
+        }
+    }
+
+    private void verifierFinPriere() {
         if (countdown.estTermine()) {
             countdown.arreter();
             priereCourante = null;
@@ -122,6 +142,22 @@ public class EcranController {
 
     public Optional<Priere> getProchainePriere() {
         return horaireService.prochainePriere(LocalTime.now());
+    }
+
+    public Optional<Alerte> getAlerte() {
+        if (etat != Etat.NORMAL) {
+            return Optional.empty();
+        }
+        LocalTime maintenant = LocalTime.now();
+        Optional<Priere> prochaine = horaireService.prochaineAdhan(maintenant);
+        if (prochaine.isEmpty()) {
+            return Optional.empty();
+        }
+        long minutes = horaireService.minutesAvant(prochaine.get(), maintenant);
+        if (minutes >= 1 && minutes <= SEUIL_ALERTE_MINUTES) {
+            return Optional.of(new Alerte(prochaine.get(), minutes));
+        }
+        return Optional.empty();
     }
 
     public long getSecondesRestantes() {
