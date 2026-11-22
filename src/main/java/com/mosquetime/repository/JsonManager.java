@@ -64,7 +64,10 @@ public class JsonManager {
     private static String contenu(String fichier) throws IOException {
         Path local = DOSSIER.resolve(fichier);
         if (Files.exists(local)) {
-            return Files.readString(local, StandardCharsets.UTF_8);
+            String texteLocal = Files.readString(local, StandardCharsets.UTF_8);
+            if (!texteLocal.isBlank()) {
+                return texteLocal;
+            }
         }
         try (InputStream in = JsonManager.class.getResourceAsStream("/data/" + fichier)) {
             if (in == null) {
