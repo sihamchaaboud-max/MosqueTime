@@ -1,25 +1,12 @@
 package com.mosquetime;
 
-import com.mosquetime.controller.EcranController;
-import com.mosquetime.controller.MosqueeController;
-import com.mosquetime.model.Priere;
-import com.mosquetime.repository.InvocationRepository;
-import com.mosquetime.repository.VersetRepository;
-import com.mosquetime.service.ApparenceService;
-import com.mosquetime.service.HoraireService;
-import com.mosquetime.service.MosqueeService;
-import com.mosquetime.service.RotationService;
-import com.mosquetime.util.Etat;
-import com.mosquetime.util.SonAdhan;
-import com.mosquetime.util.Style;
-import com.mosquetime.view.AdhanPanel;
-import com.mosquetime.view.AdminDashboard;
-import com.mosquetime.view.ApparencePanel;
-import com.mosquetime.view.AttentePanel;
-import com.mosquetime.view.ContenuPanel;
-import com.mosquetime.view.MosqueePanel;
-import com.mosquetime.view.NormalPanel;
-import com.mosquetime.view.PrierePanel;
+import java.awt.BorderLayout;
+import java.awt.CardLayout;
+import java.awt.Dimension;
+import java.awt.event.KeyEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.time.format.DateTimeFormatter;
 
 import javax.swing.JComponent;
 import javax.swing.JFrame;
@@ -28,13 +15,28 @@ import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.WindowConstants;
-import java.awt.BorderLayout;
-import java.awt.CardLayout;
-import java.awt.Dimension;
-import java.awt.event.KeyEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
-import java.time.format.DateTimeFormatter;
+
+import com.mosquetime.controller.EcranController;
+import com.mosquetime.controller.MosqueeController;
+import com.mosquetime.model.Mosquee;
+import com.mosquetime.model.Priere;
+import com.mosquetime.repository.InvocationRepository;
+import com.mosquetime.repository.JsonManager;
+import com.mosquetime.repository.VersetRepository;
+import com.mosquetime.service.HoraireService;
+import com.mosquetime.service.MosqueeService;
+import com.mosquetime.service.RotationService;
+import com.mosquetime.util.Etat;
+import com.mosquetime.util.SonAdhan;
+import com.mosquetime.util.Style;
+import com.mosquetime.view.AdhanPanel;
+import com.mosquetime.view.AdminDashboard;
+import com.mosquetime.view.AttentePanel;
+import com.mosquetime.view.ContenuPanel;
+import com.mosquetime.view.MosqueePanel;
+import com.mosquetime.view.NormalPanel;
+import com.mosquetime.view.ParametrePanel;
+import com.mosquetime.view.PrierePanel;
 
 /**
  * Point d'entrée de MosqueTime.
@@ -49,6 +51,8 @@ public class Main {
     private static final String PRIERE = "PRIERE";
 
     private static final boolean PLEIN_ECRAN = false;
+
+    // Touches de démonstration : F2 = adhan, F3 = écran de prière
     private static final boolean MODE_DEMO = true;
 
     private static final DateTimeFormatter FORMAT_HEURE =
@@ -98,7 +102,7 @@ public class Main {
         fenetre.setLayout(new BorderLayout());
         fenetre.add(zoneEcrans, BorderLayout.CENTER);
         fenetre.add(zoneBas, BorderLayout.SOUTH);
-        fenetre.setMinimumSize(new Dimension(900, 680));
+        fenetre.setMinimumSize(new Dimension(900, 600));
         fenetre.setSize(1280, 760);
         fenetre.setLocationRelativeTo(null);
 
@@ -122,6 +126,7 @@ public class Main {
                 KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
                 JComponent.WHEN_IN_FOCUSED_WINDOW);
 
+        // F9 : administration (mosquées et paramètres)
         fenetre.getRootPane().registerKeyboardAction(
                 e -> ouvrirAdmin(),
                 KeyStroke.getKeyStroke(KeyEvent.VK_F9, 0),
@@ -129,7 +134,11 @@ public class Main {
 
         if (MODE_DEMO) {
             fenetre.getRootPane().registerKeyboardAction(
-                    e -> controller.declencherAdhan(Priere.DHUHR),
+                    e -> {
+                        if (controller.getEtat() == Etat.NORMAL) {
+                            controller.declencherAdhan(Priere.DHUHR);
+                        }
+                    },
                     KeyStroke.getKeyStroke(KeyEvent.VK_F2, 0),
                     JComponent.WHEN_IN_FOCUSED_WINDOW);
 
@@ -169,8 +178,7 @@ public class Main {
         admin = new AdminDashboard();
         admin.ajouterOnglet("Mosquées",
                 new MosqueePanel(new MosqueeController(), normalPanel::setNomMosquee));
-        admin.ajouterOnglet("Arrière-plan",
-                new ApparencePanel(new ApparenceService(), normalPanel::actualiserFond));
+        admin.ajouterOnglet("Paramètres", new ParametrePanel());
         admin.setVisible(true);
     }
 
@@ -180,6 +188,17 @@ public class Main {
             attentePanel.setTempsRestant((int) controller.getSecondesRestantes());
         }
     }
+
+    private static String obtenirNomArabe(Priere priere) {
+    return switch (priere.getLibelle().toUpperCase()) {
+        case "FAJR" -> "الفجر";
+        case "DOHR" -> "الظهر";
+        case "ASR" -> "العصر";
+        case "MAGHRIB" -> "المغرب";
+        case "ICHA" -> "العشاء";
+        default -> priere.getLibelle();
+    };
+}
 
     private void surChangementEtat(Etat etat) {
         Priere priere = controller.getPriereCourante();
@@ -191,7 +210,11 @@ public class Main {
                 cartes.show(zoneEcrans, NORMAL);
             }
             case ADHAN -> {
-                adhanPanel.setPriere(priere.getLibelle(), heureDe(priere));
+                String nomFr = priere.getLibelle();
+                String nomAr = obtenirNomArabe(priere);
+
+                adhanPanel.setPriere(nomFr, nomAr, heureDe(priere));
+
                 zoneBas.setVisible(true);
                 cartes.show(zoneEcrans, ADHAN);
                 sonAdhan.jouer(controller::terminerAdhan);
@@ -226,12 +249,25 @@ public class Main {
         }
     }
 
+    // Nom affiché en haut de l'écran : la mosquée choisie dans l'administration
+    // (mosquees.json) ; à défaut, le nom de l'ancien fichier mosquee.json
     private static String lireNomMosquee() {
         try {
-            return new MosqueeService().nomMosqueeActive();
+            MosqueeService mosquees = new MosqueeService();
+            if (mosquees.mosqueeActive().isPresent()) {
+                return mosquees.nomMosqueeActive();
+            }
         } catch (RuntimeException e) {
             System.err.println("mosquees.json illisible : " + e.getMessage());
-            return "MosqueTime";
         }
+        try {
+            Mosquee mosquee = JsonManager.lire("mosquee.json", Mosquee.class);
+            if (mosquee != null && mosquee.getNom() != null && !mosquee.getNom().isBlank()) {
+                return mosquee.getNom();
+            }
+        } catch (RuntimeException e) {
+            System.err.println("mosquee.json illisible : " + e.getMessage());
+        }
+        return "MosqueTime";
     }
 }

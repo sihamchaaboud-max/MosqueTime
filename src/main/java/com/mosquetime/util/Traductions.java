@@ -1,0 +1,156 @@
+package com.mosquetime.util;
+
+import static java.util.Map.entry;
+
+import java.util.EnumMap;
+import java.util.Map;
+
+import com.mosquetime.model.Langue;
+
+/**
+ * Tous les textes de l'application, dans les trois langues.
+ * Pour ajouter un texte : ajouter la même clé dans FR, EN et AR,
+ * puis écrire I18n.t("ma.cle") dans le code.
+ */
+final class Traductions {
+
+    private static final Map<Langue, Map<String, String>> TEXTES = new EnumMap<>(Langue.class);
+
+    static {
+        TEXTES.put(Langue.FR, Map.ofEntries(
+                entry("parametres.titre", "Paramètres"),
+                entry("parametres.langue", "Langue"),
+                entry("parametres.fermer", "Fermer"),
+                entry("parametres.fond", "Arrière-plan"),
+                entry("parametres.fond_aucun", "Couleur unie"),
+                entry("parametres.fond_ajouter", "Ajouter une image…"),
+                entry("fond.mosqimg.jpg", "Mosquée"),
+                entry("fond.fond_emeraude.jpg", "Émeraude"),
+                entry("fond.fond_nuit.jpg", "Nuit"),
+                entry("fond.fond_sable.jpg", "Sable"),
+                entry("fond.fond_bordeaux.jpg", "Bordeaux"),
+                entry("normal.prochaine", "Prochaine prière : {0} {1}"),
+                entry("normal.aucune", "Plus de prière aujourd'hui"),
+                entry("normal.alerte", "Il reste {0} min pour la prière {1}"),
+                entry("normal.fajr_demain", "{0} demain {1}  ·  dans {2}"),
+                entry("normal.prochaine_reste", "Prochaine prière : {0} {1}  ·  dans {2}"),
+                entry("normal.duree_hm", "{0} h {1} min"),
+                entry("normal.duree_m", "{0} min"),
+                entry("hijri.format", "{0} {1} {2} H"),
+                entry("hijri.mois.1", "Mouharram"),
+                entry("hijri.mois.2", "Safar"),
+                entry("hijri.mois.3", "Rabi' al-awwal"),
+                entry("hijri.mois.4", "Rabi' ath-thani"),
+                entry("hijri.mois.5", "Joumada al-oula"),
+                entry("hijri.mois.6", "Joumada ath-thania"),
+                entry("hijri.mois.7", "Rajab"),
+                entry("hijri.mois.8", "Cha'abane"),
+                entry("hijri.mois.9", "Ramadan"),
+                entry("hijri.mois.10", "Chawwal"),
+                entry("hijri.mois.11", "Dhou al-qi'da"),
+                entry("hijri.mois.12", "Dhou al-hijja"),
+                entry("adhan.titre", "C'est l'heure de l'adhan"),
+                entry("adhan.sous_titre", "Préparez-vous à prier"),
+                entry("attente.titre", "Iqama dans"),
+                entry("attente.consigne", "Veuillez rejoindre les rangs"),
+                entry("priere.FAJR", "Fajr"),
+                entry("priere.CHOROUK", "Chourouq"),
+                entry("priere.DHUHR", "Dhuhr"),
+                entry("priere.ASR", "Asr"),
+                entry("priere.MAGHRIB", "Maghrib"),
+                entry("priere.ISHA", "Isha")));
+
+        TEXTES.put(Langue.EN, Map.ofEntries(
+                entry("parametres.titre", "Settings"),
+                entry("parametres.langue", "Language"),
+                entry("parametres.fermer", "Close"),
+                entry("parametres.fond", "Background"),
+                entry("parametres.fond_aucun", "Plain color"),
+                entry("parametres.fond_ajouter", "Add an image…"),
+                entry("fond.mosqimg.jpg", "Mosque"),
+                entry("fond.fond_emeraude.jpg", "Emerald"),
+                entry("fond.fond_nuit.jpg", "Night"),
+                entry("fond.fond_sable.jpg", "Sand"),
+                entry("fond.fond_bordeaux.jpg", "Burgundy"),
+                entry("normal.prochaine", "Next prayer: {0} {1}"),
+                entry("normal.aucune", "No more prayers today"),
+                entry("normal.alerte", "{0} min left until the {1} prayer"),
+                entry("normal.fajr_demain", "{0} tomorrow {1}  ·  in {2}"),
+                entry("normal.prochaine_reste", "Next prayer: {0} {1}  ·  in {2}"),
+                entry("normal.duree_hm", "{0} h {1} min"),
+                entry("normal.duree_m", "{0} min"),
+                entry("hijri.format", "{0} {1} {2} AH"),
+                entry("hijri.mois.1", "Muharram"),
+                entry("hijri.mois.2", "Safar"),
+                entry("hijri.mois.3", "Rabi' al-awwal"),
+                entry("hijri.mois.4", "Rabi' al-thani"),
+                entry("hijri.mois.5", "Jumada al-ula"),
+                entry("hijri.mois.6", "Jumada al-thaniya"),
+                entry("hijri.mois.7", "Rajab"),
+                entry("hijri.mois.8", "Sha'ban"),
+                entry("hijri.mois.9", "Ramadan"),
+                entry("hijri.mois.10", "Shawwal"),
+                entry("hijri.mois.11", "Dhu al-Qi'dah"),
+                entry("hijri.mois.12", "Dhu al-Hijjah"),
+                entry("adhan.titre", "It is time for the adhan"),
+                entry("adhan.sous_titre", "Get ready to pray"),
+                entry("attente.titre", "Iqama in"),
+                entry("attente.consigne", "Please join the rows"),
+                entry("priere.FAJR", "Fajr"),
+                entry("priere.CHOROUK", "Sunrise"),
+                entry("priere.DHUHR", "Dhuhr"),
+                entry("priere.ASR", "Asr"),
+                entry("priere.MAGHRIB", "Maghrib"),
+                entry("priere.ISHA", "Isha")));
+
+        TEXTES.put(Langue.AR, Map.ofEntries(
+                entry("parametres.titre", "الإعدادات"),
+                entry("parametres.langue", "اللغة"),
+                entry("parametres.fermer", "إغلاق"),
+                entry("parametres.fond", "الخلفية"),
+                entry("parametres.fond_aucun", "لون موحّد"),
+                entry("parametres.fond_ajouter", "إضافة صورة…"),
+                entry("fond.mosqimg.jpg", "المسجد"),
+                entry("fond.fond_emeraude.jpg", "زمردي"),
+                entry("fond.fond_nuit.jpg", "ليلي"),
+                entry("fond.fond_sable.jpg", "رملي"),
+                entry("fond.fond_bordeaux.jpg", "عنابي"),
+                entry("normal.prochaine", "الصلاة القادمة : {0} {1}"),
+                entry("normal.aucune", "لا توجد صلوات أخرى اليوم"),
+                entry("normal.alerte", "بقي {0} د على صلاة {1}"),
+                entry("normal.fajr_demain", "{0} غدًا {1}  ·  بعد {2}"),
+                entry("normal.prochaine_reste", "الصلاة القادمة: {0} {1}  ·  بعد {2}"),
+                entry("normal.duree_hm", "{0} س {1} د"),
+                entry("normal.duree_m", "{0} د"),
+                entry("hijri.format", "{0} {1} {2} هـ"),
+                entry("hijri.mois.1", "محرم"),
+                entry("hijri.mois.2", "صفر"),
+                entry("hijri.mois.3", "ربيع الأول"),
+                entry("hijri.mois.4", "ربيع الثاني"),
+                entry("hijri.mois.5", "جمادى الأولى"),
+                entry("hijri.mois.6", "جمادى الآخرة"),
+                entry("hijri.mois.7", "رجب"),
+                entry("hijri.mois.8", "شعبان"),
+                entry("hijri.mois.9", "رمضان"),
+                entry("hijri.mois.10", "شوال"),
+                entry("hijri.mois.11", "ذو القعدة"),
+                entry("hijri.mois.12", "ذو الحجة"),
+                entry("adhan.titre", "حان الآن وقت الأذان"),
+                entry("adhan.sous_titre", "استعدوا للصلاة"),
+                entry("attente.titre", "الإقامة بعد"),
+                entry("attente.consigne", "يرجى الالتحاق بالصفوف"),
+                entry("priere.FAJR", "الفجر"),
+                entry("priere.CHOROUK", "الشروق"),
+                entry("priere.DHUHR", "الظهر"),
+                entry("priere.ASR", "العصر"),
+                entry("priere.MAGHRIB", "المغرب"),
+                entry("priere.ISHA", "العشاء")));
+    }
+
+    private Traductions() {
+    }
+
+    static String get(Langue langue, String cle) {
+        return TEXTES.get(langue).get(cle);
+    }
+}

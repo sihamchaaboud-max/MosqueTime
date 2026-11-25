@@ -63,6 +63,12 @@ public class PrierePanel extends JPanel {
         c.gridy = 2; add(consigne, c);
     }
 
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        FondEcran.peindre(g, FondEcran.charger(), getWidth(), getHeight());
+    }
+
     // Dessine un téléphone barré d'une croix rouge, à la taille disponible
     private static class IconeTelephone extends JComponent {
 

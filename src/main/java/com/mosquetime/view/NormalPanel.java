@@ -3,9 +3,9 @@ package com.mosquetime.view;
 import com.mosquetime.controller.EcranController;
 import com.mosquetime.model.Horaire;
 import com.mosquetime.model.Priere;
-import com.mosquetime.service.ApparenceService;
 import com.mosquetime.service.HoraireService;
 import com.mosquetime.util.DateUtil;
+import com.mosquetime.util.I18n;
 import com.mosquetime.util.Style;
 
 import javax.swing.*;
@@ -24,18 +24,16 @@ import java.util.Optional;
 
 public class NormalPanel extends JPanel {
 
-    private static final DateTimeFormatter FORMAT_DATE =
-            DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.FRENCH);
     private static final DateTimeFormatter FORMAT_HEURE =
             DateTimeFormatter.ofPattern("HH:mm:ss");
     private static final DateTimeFormatter FORMAT_PRIERE =
             DateTimeFormatter.ofPattern("HH:mm");
 
+    // Correction de la date hijri si elle diffère d'un jour de la date officielle (-1, 0 ou 1)
     private static final int DECALAGE_HIJRI_JOURS = 0;
 
     private final EcranController controller;
     private final HoraireService horaireService = new HoraireService();
-    private Image fond = new ApparenceService().chargerFond();
     private final ContenuPanel contenuPanel = new ContenuPanel();
 
     private final JLabel labelMosquee = new JLabel("", SwingConstants.CENTER);
@@ -43,6 +41,7 @@ public class NormalPanel extends JPanel {
     private final JLabel labelDateHijri = new JLabel("", SwingConstants.CENTER);
     private final JLabel labelHeure = new JLabel("", SwingConstants.CENTER);
     private final JLabel labelProchaine = new JLabel("", SwingConstants.CENTER);
+    private final BoutonParametres boutonParametres = new BoutonParametres();
 
     private final Map<Priere, JLabel> labelsNoms = new EnumMap<>(Priere.class);
     private final Map<Priere, JLabel> labelsHeures = new EnumMap<>(Priere.class);
@@ -66,6 +65,14 @@ public class NormalPanel extends JPanel {
         labelHeure.setFont(Style.GRAND);
         labelHeure.setForeground(Style.TEXTE);
 
+        // L'heure occupe la place disponible : sa taille s'adapte à la hauteur de la fenêtre
+        labelHeure.addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                ajusterPoliceHeure();
+            }
+        });
+
         labelProchaine.setFont(Style.MOYEN);
         labelProchaine.setForeground(Style.OR);
 
@@ -79,35 +86,45 @@ public class NormalPanel extends JPanel {
         haut.add(labelMosquee, BorderLayout.NORTH);
         haut.add(dates, BorderLayout.CENTER);
 
-        labelHeure.addComponentListener(new ComponentAdapter() {
-            @Override
-            public void componentResized(ComponentEvent e) {
-                ajusterPoliceHeure();
-            }
-        });
+        // Bouton « Paramètres » (roue dentée) : à droite, ou à gauche en arabe.
+        // Un espace de même taille de l'autre côté garde le titre bien centré.
+        boutonParametres.addActionListener(e -> ouvrirParametres());
 
-        add(haut, BorderLayout.NORTH);
+        JPanel boutonZone = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        boutonZone.setOpaque(false);
+        boutonZone.add(boutonParametres);
+
+        JPanel entete = new JPanel(new BorderLayout());
+        entete.setOpaque(false);
+        entete.add(haut, BorderLayout.CENTER);
+        entete.add(boutonZone, BorderLayout.LINE_END);
+        entete.add(Box.createRigidArea(new Dimension(BoutonParametres.TAILLE + 8, 1)),
+                BorderLayout.LINE_START);
+
+        add(entete, BorderLayout.NORTH);
         add(construireCentre(), BorderLayout.CENTER);
         add(construireTableau(), BorderLayout.SOUTH);
 
-        rafraichir();
+        appliquerLangue();
+        I18n.ajouterEcouteur(this::appliquerLangue);
     }
 
     public ContenuPanel getContenuPanel() {
         return contenuPanel;
     }
 
+    // Appelé par l'administration quand une autre mosquée est choisie
     public void setNomMosquee(String nom) {
         labelMosquee.setText(nom);
     }
 
+    // Appelé par l'administration quand un autre arrière-plan est choisi
     public void actualiserFond() {
-        fond = new ApparenceService().chargerFond();
-        repaint();
+        FondEcran.rafraichirTout();
     }
 
     private JPanel construireCentre() {
-        Carte pastille = new Carte(new BorderLayout(), 190);
+        CarteArrondie pastille = new CarteArrondie(new BorderLayout(), 190);
         pastille.setBorder(BorderFactory.createEmptyBorder(8, 30, 8, 30));
         pastille.add(labelProchaine, BorderLayout.CENTER);
 
@@ -120,7 +137,7 @@ public class NormalPanel extends JPanel {
         temps.add(labelHeure, BorderLayout.CENTER);
         temps.add(ligneProchaine, BorderLayout.SOUTH);
 
-        Carte contenu = new Carte(new BorderLayout(), 190);
+        CarteArrondie contenu = new CarteArrondie(new BorderLayout(), 190);
         contenu.setBorder(BorderFactory.createEmptyBorder(5, 15, 5, 15));
         contenu.add(contenuPanel, BorderLayout.CENTER);
 
@@ -145,7 +162,7 @@ public class NormalPanel extends JPanel {
             labelsNoms.put(p, nom);
             labelsHeures.put(p, heure);
 
-            Carte carte = new Carte(new GridLayout(2, 1), 190);
+            CarteArrondie carte = new CarteArrondie(new GridLayout(2, 1), 190);
             carte.setBorder(BorderFactory.createEmptyBorder(12, 5, 12, 5));
             carte.add(nom);
             carte.add(heure);
@@ -154,9 +171,35 @@ public class NormalPanel extends JPanel {
         return tableau;
     }
 
+    // Appelé au démarrage et à chaque changement de langue
+    private void appliquerLangue() {
+        applyComponentOrientation(I18n.orientation());
+
+        // Les versets et invocations sont en arabe : toujours de droite à gauche
+        contenuPanel.applyComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
+
+        boutonParametres.setToolTipText(I18n.t("parametres.titre"));
+        rafraichir();
+        revalidate();
+        repaint();
+    }
+
+    private void ouvrirParametres() {
+        Window fenetre = SwingUtilities.getWindowAncestor(this);
+        JDialog boite = new JDialog(fenetre, I18n.t("parametres.titre"),
+                Dialog.ModalityType.APPLICATION_MODAL);
+        boite.setContentPane(new ParametrePanel(boite::dispose));
+        boite.pack();
+        boite.setMinimumSize(new Dimension(520, 280));
+        boite.setLocationRelativeTo(this);
+        boite.setVisible(true);
+    }
+
     public void rafraichir() {
+        DateTimeFormatter formatDate =
+                DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", I18n.getLocale());
         LocalDate aujourdhui = LocalDate.now();
-        labelDate.setText(majuscule(aujourdhui.format(FORMAT_DATE)));
+        labelDate.setText(majuscule(aujourdhui.format(formatDate)));
         labelDateHijri.setText(DateUtil.dateHijri(aujourdhui, DECALAGE_HIJRI_JOURS));
         labelHeure.setText(LocalTime.now().format(FORMAT_HEURE));
 
@@ -165,19 +208,29 @@ public class NormalPanel extends JPanel {
 
         Optional<EcranController.Alerte> alerte = controller.getAlerte();
         if (alerte.isPresent()) {
-            labelProchaine.setText("Il reste " + alerte.get().minutes()
-                    + " min pour la prière " + alerte.get().priere().getLibelle());
+            // Une prière est dans moins de 5 minutes : la pastille le dit
+            labelProchaine.setText(I18n.t("normal.alerte", alerte.get().minutes(),
+                    I18n.nomPriere(alerte.get().priere())));
         } else if (prochaine.isPresent()) {
             LocalTime h = horaire.map(x -> x.getHeure(prochaine.get())).orElse(null);
-            String texteHeure = (h == null) ? "" : "  " + h.format(FORMAT_PRIERE);
-            labelProchaine.setText("Prochaine prière : "
-                    + prochaine.get().getLibelle() + texteHeure);
+            if (h == null) {
+                labelProchaine.setText(I18n.t("normal.prochaine",
+                        I18n.nomPriere(prochaine.get()), ""));
+            } else {
+                // Prochaine prière, son heure et le temps qui reste
+                Duration reste = Duration.between(LocalTime.now(), h);
+                labelProchaine.setText(I18n.t("normal.prochaine_reste",
+                        I18n.nomPriere(prochaine.get()), h.format(FORMAT_PRIERE),
+                        formaterReste(reste)));
+            }
         } else {
+            // Plus de prière aujourd'hui : on annonce le Fajr de demain et le temps restant
             labelProchaine.setText(texteFajrDemain());
         }
 
         for (Priere p : Priere.values()) {
             LocalTime h = horaire.map(x -> x.getHeure(p)).orElse(null);
+            labelsNoms.get(p).setText(I18n.nomPriere(p));
             labelsHeures.get(p).setText(h == null ? "--:--" : h.format(FORMAT_PRIERE));
 
             boolean estProchaine = prochaine.isPresent() && prochaine.get() == p;
@@ -190,37 +243,29 @@ public class NormalPanel extends JPanel {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        Graphics2D g2 = (Graphics2D) g.create();
-        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
-                RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-
-        if (fond != null) {
-            double echelle = Math.max(
-                    (double) getWidth() / fond.getWidth(null),
-                    (double) getHeight() / fond.getHeight(null));
-            int w = (int) (fond.getWidth(null) * echelle);
-            int h = (int) (fond.getHeight(null) * echelle);
-            g2.drawImage(fond, (getWidth() - w) / 2, (getHeight() - h) / 2, w, h, null);
-        } else {
-            g2.setColor(Style.FOND);
-            g2.fillRect(0, 0, getWidth(), getHeight());
-        }
-
-        g2.setColor(new Color(0, 0, 0, 150));
-        g2.fillRect(0, 0, getWidth(), getHeight());
-        g2.dispose();
+        FondEcran.peindre(g, FondEcran.charger(), getWidth(), getHeight());
     }
 
     private String texteFajrDemain() {
         Optional<LocalTime> fajr = horaireService.heureFajrDemain();
         if (fajr.isEmpty()) {
-            return "Plus de prière aujourd'hui";
+            return I18n.t("normal.aucune");
         }
         LocalDateTime debut = LocalDateTime.of(LocalDate.now().plusDays(1), fajr.get());
         Duration reste = Duration.between(LocalDateTime.now(), debut);
-        return Priere.FAJR.getLibelle() + " demain " + fajr.get().format(FORMAT_PRIERE)
-                + "  ·  dans " + reste.toHours() + " h "
-                + String.format("%02d", reste.toMinutesPart()) + " min";
+        return I18n.t("normal.fajr_demain", I18n.nomPriere(Priere.FAJR),
+                fajr.get().format(FORMAT_PRIERE), formaterReste(reste));
+    }
+
+    // « 1 h 59 min » ou « 42 min » (les minutes sont arrondies vers le haut)
+    private String formaterReste(Duration reste) {
+        Duration arrondi = Duration.ofSeconds(Math.max(0, reste.getSeconds()) + 59);
+        long heures = arrondi.toHours();
+        long minutes = arrondi.toMinutesPart();
+        if (heures > 0) {
+            return I18n.t("normal.duree_hm", heures, String.format("%02d", minutes));
+        }
+        return I18n.t("normal.duree_m", minutes);
     }
 
     private void ajusterPoliceHeure() {
@@ -233,27 +278,5 @@ public class NormalPanel extends JPanel {
 
     private String majuscule(String texte) {
         return texte.substring(0, 1).toUpperCase() + texte.substring(1);
-    }
-
-    private static class Carte extends JPanel {
-        private final int alpha;
-
-        Carte(LayoutManager layout, int alpha) {
-            super(layout);
-            this.alpha = alpha;
-            setOpaque(false);
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-                    RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(new Color(Style.CARTE.getRed(), Style.CARTE.getGreen(),
-                    Style.CARTE.getBlue(), alpha));
-            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 25, 25);
-            g2.dispose();
-            super.paintComponent(g);
-        }
     }
 }
