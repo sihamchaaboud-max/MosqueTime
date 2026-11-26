@@ -4,6 +4,7 @@ import com.mosquetime.controller.EcranController;
 import com.mosquetime.model.Horaire;
 import com.mosquetime.model.Priere;
 import com.mosquetime.service.HoraireService;
+import com.mosquetime.service.MosqueeService;
 import com.mosquetime.util.I18n;
 import com.mosquetime.util.Style;
 
@@ -41,13 +42,29 @@ public class NormalPanel extends JPanel {
     private final Map<Priere, JLabel> labelsNoms = new EnumMap<>(Priere.class);
     private final Map<Priere, JLabel> labelsHeures = new EnumMap<>(Priere.class);
 
+    private final MosqueeService mosqueeService;   // nom de la mosquée en 3 langues (peut être null)
+    private String nomFixe;                        // utilisé si mosqueeService est null
+
+    // Nom de mosquée fixe (utilisé par TestEcran)
     public NormalPanel(EcranController controller, String nomMosquee) {
+        this(controller, null, nomMosquee);
+    }
+
+    // Le nom affiché est celui de la mosquée active, dans la langue choisie
+    public NormalPanel(EcranController controller, MosqueeService mosqueeService) {
+        this(controller, mosqueeService, "MosqueTime");
+    }
+
+    private NormalPanel(EcranController controller, MosqueeService mosqueeService,
+            String nomMosquee) {
         this.controller = controller;
+        this.mosqueeService = mosqueeService;
+        this.nomFixe = nomMosquee;
 
         setLayout(new BorderLayout(0, 15));
         setBorder(BorderFactory.createEmptyBorder(25, 40, 25, 40));
 
-        labelMosquee.setText(nomMosquee);
+        labelMosquee.setText(nomAffiche());
         labelMosquee.setFont(Style.TITRE);
         labelMosquee.setForeground(Style.OR);
 
@@ -90,6 +107,27 @@ public class NormalPanel extends JPanel {
 
     public ContenuPanel getContenuPanel() {
         return contenuPanel;
+    }
+
+    // Appelé par l'administration quand une autre mosquée est choisie
+    // (ou quand ses noms traduits changent) : on relit le nom dans la langue courante
+    public void setNomMosquee(String nom) {
+        if (mosqueeService == null) {
+            nomFixe = nom;
+        }
+        labelMosquee.setText(nomAffiche());
+    }
+
+    // Nom de la mosquée dans la langue courante (repli : nom français)
+    private String nomAffiche() {
+        return (mosqueeService != null)
+                ? mosqueeService.nomMosqueeActive(I18n.getLangue())
+                : nomFixe;
+    }
+
+    // Appelé par l'administration quand un autre arrière-plan est choisi
+    public void actualiserFond() {
+        FondEcran.rafraichirTout();
     }
 
     private JPanel construireCentre() {
@@ -142,6 +180,7 @@ public class NormalPanel extends JPanel {
 
     // Appelé au démarrage et à chaque changement de langue
     private void appliquerLangue() {
+        labelMosquee.setText(nomAffiche());
         applyComponentOrientation(I18n.orientation());
 
         // Les versets et invocations sont en arabe : toujours de droite à gauche
