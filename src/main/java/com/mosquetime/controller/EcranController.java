@@ -178,6 +178,7 @@ public class EcranController {
 
     public Optional<Priere> getProchainePriere() {
         return horaireService.prochainePriere(LocalTime.now());
+
     }
 
     public String getTexteCompteARebours() {
