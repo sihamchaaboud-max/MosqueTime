@@ -14,15 +14,22 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 /**
- * Machine à états de l'écran : NORMAL -> ADHAN -> ATTENTE -> NORMAL.
+ * Machine à états de l'écran : NORMAL -> ADHAN -> ATTENTE -> PRIERE -> NORMAL.
  *
  *  - NORMAL  : l'heure d'une prière arrive      -> ADHAN
  *  - ADHAN   : le son est terminé (terminerAdhan) -> ATTENTE (compte à rebours
  *              dont la durée dépend de la prière : voir iqama.json)
  *              (sécurité : si le son ne finit pas, fin automatique après 180 s)
- *  - ATTENTE : le compte à rebours est fini      -> NORMAL
+ *  - ATTENTE : le compte à rebours de l'iqama est fini -> PRIERE
+ *  - PRIERE  : écran « téléphone interdit » pendant la prière (5 minutes) -> NORMAL
  */
 public class EcranController {
+
+    // Message affiché quand une prière est proche : « il reste X min pour la prière Y »
+    public record Alerte(Priere priere, long minutes) {}
+
+    private static final int SEUIL_ALERTE_MINUTES = 5;
+    private static final int DUREE_PRIERE_SECONDES = 5 * 60;
 
     // Sécurité : si le son ne signale jamais sa fin, l'adhan s'arrête après 10 minutes
     private static final int DUREE_ADHAN_SECONDES = 10 * 60;
@@ -36,6 +43,7 @@ public class EcranController {
     private Priere priereCourante;
     private LocalDateTime finAdhan;
     private int dureeAttenteSecondes = 15 * 60;
+    private int dureePriereSecondes = DUREE_PRIERE_SECONDES;
 
     // Dernière prière déclenchée automatiquement (évite de la relancer dans la même minute)
     private Priere derniereAdhan;
@@ -83,6 +91,7 @@ public class EcranController {
             case NORMAL -> verifierAdhan();
             case ADHAN -> verifierFinAdhan();
             case ATTENTE -> verifierFinAttente();
+            case PRIERE -> verifierFinPriere();
         }
         notifierMiseAJour();
     }
@@ -111,6 +120,12 @@ public class EcranController {
     }
 
     private void verifierFinAttente() {
+        if (countdown.estTermine()) {
+            declencherPriere();
+        }
+    }
+
+    private void verifierFinPriere() {
         if (countdown.estTermine()) {
             retourNormal();
         }
@@ -145,7 +160,22 @@ public class EcranController {
         changerEtat(Etat.ATTENTE);
     }
 
-    // ATTENTE -> NORMAL
+    // ATTENTE -> PRIERE : écran « téléphone interdit », pendant la durée de la prière
+    // (aussi utilisable seul pour la démonstration, depuis l'état NORMAL)
+    public void declencherPriere() {
+        if (etat != Etat.NORMAL && etat != Etat.ATTENTE) {
+            return;
+        }
+        countdown.demarrerSecondes(dureePriereSecondes);
+        changerEtat(Etat.PRIERE);
+    }
+
+    // Durée de l'écran de prière (5 minutes par défaut) ; utile pour tester plus vite
+    public void setDureePriereSecondes(int secondes) {
+        this.dureePriereSecondes = secondes;
+    }
+
+    // PRIERE (ou ATTENTE) -> NORMAL
     public void retourNormal() {
         countdown.arreter();
         priereCourante = null;
@@ -178,7 +208,23 @@ public class EcranController {
 
     public Optional<Priere> getProchainePriere() {
         return horaireService.prochainePriere(LocalTime.now());
+    }
 
+    // Une prière est dans moins de 5 minutes ? (uniquement à l'écran normal)
+    public Optional<Alerte> getAlerte() {
+        if (etat != Etat.NORMAL) {
+            return Optional.empty();
+        }
+        LocalTime maintenant = LocalTime.now();
+        Optional<Priere> prochaine = horaireService.prochaineAdhan(maintenant);
+        if (prochaine.isEmpty()) {
+            return Optional.empty();
+        }
+        long minutes = horaireService.minutesAvant(prochaine.get(), maintenant);
+        if (minutes >= 1 && minutes <= SEUIL_ALERTE_MINUTES) {
+            return Optional.of(new Alerte(prochaine.get(), minutes));
+        }
+        return Optional.empty();
     }
 
     public String getTexteCompteARebours() {

@@ -26,6 +26,8 @@ public class ParametrePanel extends JPanel {
 
     private final JLabel titre = new JLabel(" ", SwingConstants.CENTER);
     private final JLabel labelLangue = new JLabel(" ", SwingConstants.CENTER);
+    private final JLabel labelFond = new JLabel(" ", SwingConstants.CENTER);
+    private final SelecteurFond selecteurFond = new SelecteurFond();
     private final BoutonArrondi boutonFermer = new BoutonArrondi(" ");
     private final Map<Langue, BoutonArrondi> boutonsLangue = new EnumMap<>(Langue.class);
 
@@ -45,6 +47,9 @@ public class ParametrePanel extends JPanel {
 
         labelLangue.setFont(Style.MOYEN);
         labelLangue.setForeground(Style.TEXTE);
+
+        labelFond.setFont(Style.MOYEN);
+        labelFond.setForeground(Style.TEXTE);
 
         JPanel choix = new JPanel(new FlowLayout(FlowLayout.CENTER, 14, 0));
         choix.setOpaque(false);
@@ -73,8 +78,10 @@ public class ParametrePanel extends JPanel {
 
         c.gridy = 0; c.insets = new Insets(0, 0, 18, 0); add(titre, c);
         c.gridy = 1; c.insets = new Insets(0, 0, 12, 0); add(labelLangue, c);
-        c.gridy = 2; c.insets = new Insets(0, 0, 26, 0); add(choix, c);
-        c.gridy = 3; c.insets = new Insets(0, 0, 0, 0); c.fill = GridBagConstraints.NONE;
+        c.gridy = 2; c.insets = new Insets(0, 0, 22, 0); add(choix, c);
+        c.gridy = 3; c.insets = new Insets(0, 0, 12, 0); add(labelFond, c);
+        c.gridy = 4; c.insets = new Insets(0, 0, 26, 0); add(selecteurFond, c);
+        c.gridy = 5; c.insets = new Insets(0, 0, 0, 0); c.fill = GridBagConstraints.NONE;
         add(boutonFermer, c);
 
         appliquerLangue();
@@ -86,6 +93,8 @@ public class ParametrePanel extends JPanel {
 
         titre.setText(I18n.t("parametres.titre"));
         labelLangue.setText(I18n.t("parametres.langue"));
+        labelFond.setText(I18n.t("parametres.fond"));
+        selecteurFond.recharger();
         boutonFermer.setText(I18n.t("parametres.fermer"));
 
         // La langue courante est mise en évidence (bouton doré)

@@ -5,11 +5,9 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.RenderingHints;
-import java.io.IOException;
-import java.net.URL;
+import java.awt.Window;
 
-import javax.imageio.ImageIO;
-
+import com.mosquetime.service.ApparenceService;
 import com.mosquetime.util.Style;
 
 /**
@@ -21,15 +19,33 @@ final class FondEcran {
     private FondEcran() {
     }
 
-    static Image charger() {
-        try {
-            URL url = FondEcran.class.getResource("/images/mosqimg.jpg");
-            if (url == null) {
-                return null;
-            }
-            return ImageIO.read(url);
-        } catch (IOException e) {
-            return null;
+    // Image de fond choisie dans l'administration (apparence.json), mise en mémoire.
+    // Tous les écrans (normal, adhan, attente) utilisent le même fond.
+    // Force du voile sombre posé sur le fond (0 = aucun, 255 = noir) :
+    // plus il est fort, plus les textes (sans carte) sont faciles à lire
+    private static final int VOILE = 175;
+
+    private static Image courant;
+    private static boolean charge;
+
+    static synchronized Image charger() {
+        if (!charge) {
+            courant = new ApparenceService().chargerFond();
+            charge = true;
+        }
+        return courant;
+    }
+
+    // À appeler quand le fond change : il sera relu au prochain affichage
+    static synchronized void recharger() {
+        charge = false;
+    }
+
+    // Change le fond de tous les écrans tout de suite (fenêtres ouvertes comprises)
+    static void rafraichirTout() {
+        recharger();
+        for (Window fenetre : Window.getWindows()) {
+            fenetre.repaint();
         }
     }
 
@@ -50,7 +66,7 @@ final class FondEcran {
             g2.fillRect(0, 0, largeur, hauteur);
         }
 
-        g2.setColor(new Color(0, 0, 0, 150));
+        g2.setColor(new Color(0, 0, 0, VOILE));
         g2.fillRect(0, 0, largeur, hauteur);
         g2.dispose();
     }

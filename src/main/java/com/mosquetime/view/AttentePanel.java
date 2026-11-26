@@ -30,7 +30,6 @@ public class AttentePanel extends JPanel {
     private static final Color ALERTE = new Color(0xFF6B5B);
     private static final int DUREE_PAR_DEFAUT = 15 * 60;
 
-    private final Image fond = FondEcran.charger();
 
     private final JLabel titre = new JLabel(" ", SwingConstants.CENTER);
     private final JLabel nomPriere = new JLabel(" ", SwingConstants.CENTER);
@@ -141,7 +140,7 @@ public class AttentePanel extends JPanel {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        FondEcran.peindre(g, fond, getWidth(), getHeight());
+        FondEcran.peindre(g, FondEcran.charger(), getWidth(), getHeight());
     }
 
     // Barre de progression arrondie (temps restant)

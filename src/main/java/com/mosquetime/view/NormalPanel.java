@@ -147,9 +147,9 @@ public class NormalPanel extends JPanel {
     }
 
     // Appelé par l'administration quand un autre arrière-plan est choisi
-    // public void actualiserFond() {
-    //     FondEcran.rafraichirTout();
-    // }
+    public void actualiserFond() {
+        FondEcran.rafraichirTout();
+    }
 
     private JPanel construireCentre() {
         CarteArrondie pastille = new CarteArrondie(new BorderLayout(), 190);

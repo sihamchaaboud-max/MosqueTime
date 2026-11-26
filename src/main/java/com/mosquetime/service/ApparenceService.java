@@ -21,7 +21,8 @@ public class ApparenceService {
     public static final String FOND_PAR_DEFAUT = "mosqimg.jpg";
 
     private static final Path DOSSIER_IMAGES = Paths.get("data", "images");
-    private static final List<String> FONDS_INTEGRES = List.of(FOND_PAR_DEFAUT);
+    private static final List<String> FONDS_INTEGRES = List.of(FOND_PAR_DEFAUT,
+            "fond_emeraude.jpg", "fond_nuit.jpg", "fond_sable.jpg", "fond_bordeaux.jpg");
 
     private final ApparenceRepository repository = new ApparenceRepository();
     private Apparence apparence;

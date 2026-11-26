@@ -27,7 +27,6 @@ public class AdhanPanel extends JPanel {
 
     private static final Color OR_PALE = new Color(0x9C7B35);
 
-    private final Image fond = FondEcran.charger();
 
     private final JLabel titre = new JLabel(" ", SwingConstants.CENTER);
     private final JLabel nomPriere = new JLabel(" ", SwingConstants.CENTER);
@@ -134,7 +133,7 @@ public class AdhanPanel extends JPanel {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        FondEcran.peindre(g, fond, getWidth(), getHeight());
+        FondEcran.peindre(g, FondEcran.charger(), getWidth(), getHeight());
     }
 
     @Override
