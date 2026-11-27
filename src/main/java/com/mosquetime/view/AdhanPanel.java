@@ -1,11 +1,12 @@
 package com.mosquetime.view;
 
+import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.ComponentOrientation;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.awt.Image;
 import java.awt.Insets;
 
 import javax.swing.BorderFactory;
@@ -33,6 +34,9 @@ public class AdhanPanel extends JPanel {
     private final JLabel heure = new JLabel(" ", SwingConstants.CENTER);
     private final JLabel sousTitre = new JLabel(" ", SwingConstants.CENTER);
 
+    // Verset et invocation en bas de l'écran (fond transparent : on voit l'arrière-plan)
+    private final ContenuPanel contenuPanel = new ContenuPanel();
+
     private final Timer clignotement;
     private boolean clair = true;
 
@@ -42,7 +46,8 @@ public class AdhanPanel extends JPanel {
 
     public AdhanPanel() {
 
-        setLayout(new GridBagLayout());
+        setLayout(new BorderLayout());
+        setOpaque(false);
         setBorder(BorderFactory.createEmptyBorder(25, 40, 25, 40));
 
         titre.setForeground(Style.OR);
@@ -56,7 +61,9 @@ public class AdhanPanel extends JPanel {
         sousTitre.setFont(Style.MOYEN);
         sousTitre.setForeground(new Color(0xCBD5E1));
 
-        CarteArrondie carte = new CarteArrondie(new GridBagLayout(), 190);
+        // Panneau transparent : les textes s'écrivent directement sur l'arrière-plan
+        JPanel carte = new JPanel(new GridBagLayout());
+        carte.setOpaque(false);
         carte.setBorder(BorderFactory.createEmptyBorder(30, 50, 30, 50));
 
         GridBagConstraints c = new GridBagConstraints();
@@ -73,7 +80,12 @@ public class AdhanPanel extends JPanel {
         GridBagConstraints centre = new GridBagConstraints();
         centre.weightx = 1;
         centre.fill = GridBagConstraints.HORIZONTAL;
-        add(carte, centre);
+        JPanel zoneCentre = new JPanel(new GridBagLayout());
+        zoneCentre.setOpaque(false);
+        zoneCentre.add(carte, centre);
+
+        add(zoneCentre, BorderLayout.CENTER);
+        add(contenuPanel, BorderLayout.SOUTH);
 
         clignotement = new Timer(800, e -> {
             clair = !clair;
@@ -82,6 +94,10 @@ public class AdhanPanel extends JPanel {
 
         appliquerLangue();
         I18n.ajouterEcouteur(this::appliquerLangue);
+    }
+
+    public ContenuPanel getContenuPanel() {
+        return contenuPanel;
     }
 
     // Prière en cours : le nom s'affiche dans la langue choisie
@@ -116,6 +132,8 @@ public class AdhanPanel extends JPanel {
 
     private void appliquerLangue() {
         applyComponentOrientation(I18n.orientation());
+        // Versets et invocations : toujours de droite à gauche
+        contenuPanel.applyComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
 
         boolean arabe = I18n.estDroiteAGauche();
         titre.setFont(arabe

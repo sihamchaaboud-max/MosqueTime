@@ -4,6 +4,7 @@ import com.mosquetime.controller.EcranController;
 import com.mosquetime.model.Horaire;
 import com.mosquetime.model.Priere;
 import com.mosquetime.service.HoraireService;
+import com.mosquetime.service.MosqueeService;
 import com.mosquetime.util.DateUtil;
 import com.mosquetime.util.I18n;
 import com.mosquetime.util.Style;
@@ -18,7 +19,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.EnumMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -43,16 +43,32 @@ public class NormalPanel extends JPanel {
     private final JLabel labelProchaine = new JLabel("", SwingConstants.CENTER);
     private final BoutonParametres boutonParametres = new BoutonParametres();
 
-    private final Map<Priere, JLabel> labelsNoms = new EnumMap<>(Priere.class);
-    private final Map<Priere, JLabel> labelsHeures = new EnumMap<>(Priere.class);
+    // Une carte élégante et interactive par prière
+    private final Map<Priere, CartePriere> cartesPrieres = new EnumMap<>(Priere.class);
 
+    private final MosqueeService mosqueeService;   // nom de la mosquée en 3 langues (peut être null)
+    private String nomFixe;                        // utilisé si mosqueeService est null
+
+    // Nom de mosquée fixe (utilisé par TestEcran)
     public NormalPanel(EcranController controller, String nomMosquee) {
+        this(controller, null, nomMosquee);
+    }
+
+    // Le nom affiché est celui de la mosquée active, dans la langue choisie
+    public NormalPanel(EcranController controller, MosqueeService mosqueeService) {
+        this(controller, mosqueeService, "MosqueTime");
+    }
+
+    private NormalPanel(EcranController controller, MosqueeService mosqueeService,
+            String nomMosquee) {
         this.controller = controller;
+        this.mosqueeService = mosqueeService;
+        this.nomFixe = nomMosquee;
 
         setLayout(new BorderLayout(0, 15));
         setBorder(BorderFactory.createEmptyBorder(25, 40, 25, 40));
 
-        labelMosquee.setText(nomMosquee);
+        labelMosquee.setText(nomAffiche());
         labelMosquee.setFont(Style.TITRE);
         labelMosquee.setForeground(Style.OR);
 
@@ -114,8 +130,24 @@ public class NormalPanel extends JPanel {
     }
 
     // Appelé par l'administration quand une autre mosquée est choisie
+    // (ou quand ses noms traduits changent) : on relit le nom dans la langue courante
     public void setNomMosquee(String nom) {
-        labelMosquee.setText(nom);
+        if (mosqueeService == null) {
+            nomFixe = nom;
+        }
+        labelMosquee.setText(nomAffiche());
+    }
+
+    // Appelé par les paramètres quand le nom de la mosquée vient d'être modifié
+    public void actualiserNomMosquee() {
+        labelMosquee.setText(nomAffiche());
+    }
+
+    // Nom de la mosquée dans la langue courante (repli : nom français)
+    private String nomAffiche() {
+        return (mosqueeService != null)
+                ? mosqueeService.nomMosqueeActive(I18n.getLangue())
+                : nomFixe;
     }
 
     // Appelé par l'administration quand un autre arrière-plan est choisi
@@ -149,23 +181,12 @@ public class NormalPanel extends JPanel {
     }
 
     private JPanel construireTableau() {
-        JPanel tableau = new JPanel(new GridLayout(1, 6, 12, 0));
+        JPanel tableau = new JPanel(new GridLayout(1, 6, 4, 0));
         tableau.setOpaque(false);
 
         for (Priere p : Priere.values()) {
-            JLabel nom = new JLabel(p.getLibelle(), SwingConstants.CENTER);
-            nom.setFont(Style.PETIT);
-
-            JLabel heure = new JLabel("--:--", SwingConstants.CENTER);
-            heure.setFont(Style.MOYEN);
-
-            labelsNoms.put(p, nom);
-            labelsHeures.put(p, heure);
-
-            CarteArrondie carte = new CarteArrondie(new GridLayout(2, 1), 190);
-            carte.setBorder(BorderFactory.createEmptyBorder(12, 5, 12, 5));
-            carte.add(nom);
-            carte.add(heure);
+            CartePriere carte = new CartePriere();
+            cartesPrieres.put(p, carte);
             tableau.add(carte);
         }
         return tableau;
@@ -173,6 +194,7 @@ public class NormalPanel extends JPanel {
 
     // Appelé au démarrage et à chaque changement de langue
     private void appliquerLangue() {
+        labelMosquee.setText(nomAffiche());
         applyComponentOrientation(I18n.orientation());
 
         // Les versets et invocations sont en arabe : toujours de droite à gauche
@@ -188,8 +210,18 @@ public class NormalPanel extends JPanel {
         Window fenetre = SwingUtilities.getWindowAncestor(this);
         JDialog boite = new JDialog(fenetre, I18n.t("parametres.titre"),
                 Dialog.ModalityType.APPLICATION_MODAL);
-        boite.setContentPane(new ParametrePanel(boite::dispose));
+        ParametrePanel panneau = new ParametrePanel(boite::dispose, mosqueeService,
+                this::actualiserNomMosquee);
+
+        // Défilement : la fenêtre reste utilisable même sur un petit écran
+        JScrollPane defilement = new JScrollPane(panneau);
+        defilement.setBorder(BorderFactory.createEmptyBorder());
+        defilement.getVerticalScrollBar().setUnitIncrement(16);
+        boite.setContentPane(defilement);
         boite.pack();
+
+        Dimension ecran = Toolkit.getDefaultToolkit().getScreenSize();
+        boite.setSize(boite.getWidth() + 20, Math.min(boite.getHeight(), (int) (ecran.height * 0.85)));
         boite.setMinimumSize(new Dimension(520, 280));
         boite.setLocationRelativeTo(this);
         boite.setVisible(true);
@@ -228,15 +260,15 @@ public class NormalPanel extends JPanel {
             labelProchaine.setText(texteFajrDemain());
         }
 
+        LocalTime maintenant = LocalTime.now();
         for (Priere p : Priere.values()) {
             LocalTime h = horaire.map(x -> x.getHeure(p)).orElse(null);
-            labelsNoms.get(p).setText(I18n.nomPriere(p));
-            labelsHeures.get(p).setText(h == null ? "--:--" : h.format(FORMAT_PRIERE));
 
             boolean estProchaine = prochaine.isPresent() && prochaine.get() == p;
-            Color couleur = estProchaine ? Style.OR : Style.TEXTE;
-            labelsNoms.get(p).setForeground(couleur);
-            labelsHeures.get(p).setForeground(couleur);
+            boolean estPassee = !estProchaine && h != null && h.isBefore(maintenant);
+
+            cartesPrieres.get(p).mettreAJour(I18n.nomPriere(p),
+                    h == null ? "--:--" : h.format(FORMAT_PRIERE), estProchaine, estPassee);
         }
     }
 

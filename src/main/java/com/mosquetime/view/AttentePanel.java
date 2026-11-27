@@ -1,13 +1,14 @@
 package com.mosquetime.view;
 
+import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.ComponentOrientation;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.awt.Image;
 import java.awt.Insets;
 import java.awt.RenderingHints;
 
@@ -37,6 +38,9 @@ public class AttentePanel extends JPanel {
     private final JLabel consigne = new JLabel(" ", SwingConstants.CENTER);
     private final Barre barre = new Barre();
 
+    // Verset et invocation en bas de l'écran (fond transparent : on voit l'arrière-plan)
+    private final ContenuPanel contenuPanel = new ContenuPanel();
+
     private int dureeTotale = DUREE_PAR_DEFAUT;
     private int secondes = 0;
 
@@ -45,7 +49,8 @@ public class AttentePanel extends JPanel {
 
     public AttentePanel() {
 
-        setLayout(new GridBagLayout());
+        setLayout(new BorderLayout());
+        setOpaque(false);
         setBorder(BorderFactory.createEmptyBorder(25, 40, 25, 40));
 
         titre.setForeground(new Color(0xCBD5E1));
@@ -59,7 +64,9 @@ public class AttentePanel extends JPanel {
         consigne.setFont(new Font("SansSerif", Font.ITALIC, 26));
         consigne.setForeground(new Color(0xCBD5E1));
 
-        CarteArrondie carte = new CarteArrondie(new GridBagLayout(), 190);
+        // Panneau transparent : les textes s'écrivent directement sur l'arrière-plan
+        JPanel carte = new JPanel(new GridBagLayout());
+        carte.setOpaque(false);
         carte.setBorder(BorderFactory.createEmptyBorder(25, 50, 25, 50));
 
         GridBagConstraints c = new GridBagConstraints();
@@ -77,11 +84,20 @@ public class AttentePanel extends JPanel {
         GridBagConstraints centre = new GridBagConstraints();
         centre.weightx = 1;
         centre.fill = GridBagConstraints.HORIZONTAL;
-        add(carte, centre);
+        JPanel zoneCentre = new JPanel(new GridBagLayout());
+        zoneCentre.setOpaque(false);
+        zoneCentre.add(carte, centre);
+
+        add(zoneCentre, BorderLayout.CENTER);
+        add(contenuPanel, BorderLayout.SOUTH);
 
         setTempsRestant(0);
         appliquerLangue();
         I18n.ajouterEcouteur(this::appliquerLangue);
+    }
+
+    public ContenuPanel getContenuPanel() {
+        return contenuPanel;
     }
 
     // Prière concernée : le nom s'affiche dans la langue choisie
@@ -124,6 +140,8 @@ public class AttentePanel extends JPanel {
 
     private void appliquerLangue() {
         applyComponentOrientation(I18n.orientation());
+        // Versets et invocations : toujours de droite à gauche
+        contenuPanel.applyComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
 
         titre.setFont(I18n.estDroiteAGauche()
                 ? new Font("Traditional Arabic", Font.BOLD, 46)

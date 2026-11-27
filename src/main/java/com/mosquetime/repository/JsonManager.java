@@ -52,6 +52,19 @@ public class JsonManager {
         }
     }
 
+    // Lit le fichier livré avec l'application (src/main/resources/data), sans passer par la copie data/
+    // Renvoie null si le fichier n'existe pas ou n'est pas lisible.
+    public static <T> T lireRessource(String fichier, TypeToken<T> type) {
+        try (InputStream in = JsonManager.class.getResourceAsStream("/data/" + fichier)) {
+            if (in == null) {
+                return null;
+            }
+            return GSON.fromJson(new String(in.readAllBytes(), StandardCharsets.UTF_8), type.getType());
+        } catch (IOException | JsonParseException e) {
+            return null;
+        }
+    }
+
     public static void ecrire(String fichier, Object donnees) {
         try {
             Files.createDirectories(DOSSIER);

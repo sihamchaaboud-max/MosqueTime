@@ -18,21 +18,17 @@ import javax.swing.WindowConstants;
 
 import com.mosquetime.controller.EcranController;
 import com.mosquetime.controller.MosqueeController;
-import com.mosquetime.model.Mosquee;
 import com.mosquetime.model.Priere;
 import com.mosquetime.repository.InvocationRepository;
-import com.mosquetime.repository.JsonManager;
 import com.mosquetime.repository.VersetRepository;
 import com.mosquetime.service.HoraireService;
 import com.mosquetime.service.MosqueeService;
 import com.mosquetime.service.RotationService;
 import com.mosquetime.util.Etat;
 import com.mosquetime.util.SonAdhan;
-import com.mosquetime.util.Style;
 import com.mosquetime.view.AdhanPanel;
 import com.mosquetime.view.AdminDashboard;
 import com.mosquetime.view.AttentePanel;
-import com.mosquetime.view.ContenuPanel;
 import com.mosquetime.view.MosqueePanel;
 import com.mosquetime.view.NormalPanel;
 import com.mosquetime.view.ParametrePanel;
@@ -64,13 +60,12 @@ public class Main {
     private final EcranController controller = new EcranController();
     private final HoraireService horaireService = new HoraireService();
 
-    private final NormalPanel normalPanel = new NormalPanel(controller, lireNomMosquee());
+    // Un seul service pour l'écran principal et l'administration : un changement est visible tout de suite
+    private final MosqueeService mosqueeService = new MosqueeService();
+    private final NormalPanel normalPanel = new NormalPanel(controller, mosqueeService);
     private final AdhanPanel adhanPanel = new AdhanPanel();
     private final AttentePanel attentePanel = new AttentePanel();
     private final PrierePanel prierePanel = new PrierePanel();
-
-    private final ContenuPanel bandeauBas = new ContenuPanel();
-    private final JPanel zoneBas = new JPanel(new BorderLayout());
 
     private final SonAdhan sonAdhan = new SonAdhan();
     private RotationService rotation;
@@ -93,15 +88,10 @@ public class Main {
         zoneEcrans.add(attentePanel, ATTENTE);
         zoneEcrans.add(prierePanel, PRIERE);
 
-        zoneBas.setBackground(Style.FOND);
-        zoneBas.add(bandeauBas, BorderLayout.CENTER);
-        zoneBas.setVisible(false);
-
         JFrame fenetre = new JFrame("MosqueTime");
         fenetre.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         fenetre.setLayout(new BorderLayout());
         fenetre.add(zoneEcrans, BorderLayout.CENTER);
-        fenetre.add(zoneBas, BorderLayout.SOUTH);
         fenetre.setMinimumSize(new Dimension(900, 600));
         fenetre.setSize(1280, 760);
         fenetre.setLocationRelativeTo(null);
@@ -156,11 +146,13 @@ public class Main {
                 new InvocationRepository(),
                 v -> {
                     normalPanel.getContenuPanel().afficherVerset(v);
-                    bandeauBas.afficherVerset(v);
+                    adhanPanel.getContenuPanel().afficherVerset(v);
+                    attentePanel.getContenuPanel().afficherVerset(v);
                 },
                 i -> {
                     normalPanel.getContenuPanel().afficherInvocation(i);
-                    bandeauBas.afficherInvocation(i);
+                    adhanPanel.getContenuPanel().afficherInvocation(i);
+                    attentePanel.getContenuPanel().afficherInvocation(i);
                 });
 
         cartes.show(zoneEcrans, NORMAL);
@@ -177,7 +169,7 @@ public class Main {
         }
         admin = new AdminDashboard();
         admin.ajouterOnglet("Mosquées",
-                new MosqueePanel(new MosqueeController(), normalPanel::setNomMosquee));
+                new MosqueePanel(new MosqueeController(mosqueeService), normalPanel::setNomMosquee));
         admin.ajouterOnglet("Paramètres", new ParametrePanel());
         admin.setVisible(true);
     }
@@ -189,46 +181,28 @@ public class Main {
         }
     }
 
-    private static String obtenirNomArabe(Priere priere) {
-    return switch (priere.getLibelle().toUpperCase()) {
-        case "FAJR" -> "الفجر";
-        case "DOHR" -> "الظهر";
-        case "ASR" -> "العصر";
-        case "MAGHRIB" -> "المغرب";
-        case "ICHA" -> "العشاء";
-        default -> priere.getLibelle();
-    };
-}
-
     private void surChangementEtat(Etat etat) {
         Priere priere = controller.getPriereCourante();
 
         switch (etat) {
             case NORMAL -> {
                 sonAdhan.arreter();
-                zoneBas.setVisible(false);
                 cartes.show(zoneEcrans, NORMAL);
             }
             case ADHAN -> {
-                String nomFr = priere.getLibelle();
-                String nomAr = obtenirNomArabe(priere);
-
-                adhanPanel.setPriere(nomFr, nomAr, heureDe(priere));
-
-                zoneBas.setVisible(true);
+                // Le nom s'affiche dans la langue choisie (traduit par AdhanPanel)
+                adhanPanel.setPriere(priere, heureDe(priere));
                 cartes.show(zoneEcrans, ADHAN);
                 sonAdhan.jouer(controller::terminerAdhan);
             }
             case ATTENTE -> {
                 sonAdhan.arreter();
-                attentePanel.setPriere(priere.getLibelle());
+                attentePanel.setPriere(priere);
                 attentePanel.setTempsRestant((int) controller.getSecondesRestantes());
-                zoneBas.setVisible(true);
                 cartes.show(zoneEcrans, ATTENTE);
             }
             case PRIERE -> {
                 sonAdhan.arreter();
-                zoneBas.setVisible(false);
                 cartes.show(zoneEcrans, PRIERE);
             }
         }
@@ -247,27 +221,5 @@ public class Main {
         if (rotation != null) {
             rotation.arreter();
         }
-    }
-
-    // Nom affiché en haut de l'écran : la mosquée choisie dans l'administration
-    // (mosquees.json) ; à défaut, le nom de l'ancien fichier mosquee.json
-    private static String lireNomMosquee() {
-        try {
-            MosqueeService mosquees = new MosqueeService();
-            if (mosquees.mosqueeActive().isPresent()) {
-                return mosquees.nomMosqueeActive();
-            }
-        } catch (RuntimeException e) {
-            System.err.println("mosquees.json illisible : " + e.getMessage());
-        }
-        try {
-            Mosquee mosquee = JsonManager.lire("mosquee.json", Mosquee.class);
-            if (mosquee != null && mosquee.getNom() != null && !mosquee.getNom().isBlank()) {
-                return mosquee.getNom();
-            }
-        } catch (RuntimeException e) {
-            System.err.println("mosquee.json illisible : " + e.getMessage());
-        }
-        return "MosqueTime";
     }
 }

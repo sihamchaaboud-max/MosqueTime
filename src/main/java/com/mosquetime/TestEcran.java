@@ -26,10 +26,8 @@ import com.mosquetime.repository.VersetRepository;
 import com.mosquetime.service.RotationService;
 import com.mosquetime.util.I18n;
 import com.mosquetime.util.SonAdhan;
-import com.mosquetime.util.Style;
 import com.mosquetime.view.AdhanPanel;
 import com.mosquetime.view.AttentePanel;
-import com.mosquetime.view.ContenuPanel;
 import com.mosquetime.view.NormalPanel;
 
 /**
@@ -67,9 +65,6 @@ public class TestEcran {
     private final AdhanPanel adhan = new AdhanPanel();
     private final AttentePanel attente = new AttentePanel();
 
-    private final ContenuPanel bandeauBas = new ContenuPanel();
-    private final JPanel zoneBas = new JPanel(new BorderLayout());
-
     private final SonAdhan son = new SonAdhan();
     private RotationService rotation;
 
@@ -90,10 +85,6 @@ public class TestEcran {
         zoneEcrans.add(normal, NORMAL);
         zoneEcrans.add(adhan, ADHAN);
         zoneEcrans.add(attente, ATTENTE);
-
-        zoneBas.setBackground(Style.FOND);
-        zoneBas.add(bandeauBas, BorderLayout.CENTER);
-        zoneBas.setVisible(false);
 
         // Le nom des prières dans la liste suit la langue choisie
         choixPriere.setSelectedItem(Priere.DHUHR);
@@ -130,21 +121,22 @@ public class TestEcran {
         fenetre.setLayout(new BorderLayout());
         fenetre.add(barre, BorderLayout.NORTH);
         fenetre.add(zoneEcrans, BorderLayout.CENTER);
-        fenetre.add(zoneBas, BorderLayout.SOUTH);
         fenetre.setSize(1400, 800);
         fenetre.setLocationRelativeTo(null);
 
-        // Le bandeau verset/invocation tourne sur les deux bandeaux
+        // Le bandeau verset/invocation tourne sur les trois écrans
         rotation = new RotationService(
                 new VersetRepository(),
                 new InvocationRepository(),
                 v -> {
                     normal.getContenuPanel().afficherVerset(v);
-                    bandeauBas.afficherVerset(v);
+                    adhan.getContenuPanel().afficherVerset(v);
+                    attente.getContenuPanel().afficherVerset(v);
                 },
                 i -> {
                     normal.getContenuPanel().afficherInvocation(i);
-                    bandeauBas.afficherInvocation(i);
+                    adhan.getContenuPanel().afficherInvocation(i);
+                    attente.getContenuPanel().afficherInvocation(i);
                 });
 
         // L'horloge de l'écran NORMAL avance chaque seconde
@@ -165,7 +157,6 @@ public class TestEcran {
 
     private void afficherNormal() {
         arreterAttente();
-        zoneBas.setVisible(false);
         cartes.show(zoneEcrans, NORMAL);
         etat.setText("Écran : NORMAL");
     }
@@ -173,7 +164,6 @@ public class TestEcran {
     private void afficherAdhan() {
         arreterAttente();
         adhan.setPriere(prierechoisie(), HEURES[choixPriere.getSelectedIndex()]);
-        zoneBas.setVisible(true);
         cartes.show(zoneEcrans, ADHAN);
         etat.setText("Écran : ADHAN");
     }
@@ -187,7 +177,6 @@ public class TestEcran {
         attente.setDureeTotale(secondesRestantes);
         attente.setTempsRestant(secondesRestantes);
 
-        zoneBas.setVisible(true);
         cartes.show(zoneEcrans, ATTENTE);
         etat.setText("Écran : ATTENTE");
 
